@@ -2,6 +2,9 @@
 > **國中 108 課綱資訊科技互動闖關學習網**  
 > 專為南一版國中資訊科技 1上「第二章 2-1 雲端運算服務與網路資料搜尋技巧」量身打造的沉浸式生活實例測驗系統。
 
+🌐 **正式線上版公開網址**：[https://lohastaiwan.github.io/cloud-search-quest/](https://lohastaiwan.github.io/cloud-search-quest/)  
+📦 **GitHub 開源儲存庫**：[https://github.com/LOHASTAIWAN/cloud-search-quest](https://github.com/LOHASTAIWAN/cloud-search-quest)
+
 ---
 
 ## 🌟 系統特色
