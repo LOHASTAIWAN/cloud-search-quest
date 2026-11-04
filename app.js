@@ -2,6 +2,7 @@
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
 const APP_VERSION = "3.8.0";
+const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.coral-desk.workers.dev";
 
 // 系統核心狀態
 const appState = {
@@ -28,8 +29,8 @@ const appState = {
   questionStats: {}, // key: qId -> { attempts: 0, correct: 0, passRate: '0%' }
   loginLogs: [],     // [{ class, seat, studentId, name, loginTime, timestamp }]
 
-  // 遠端資料庫 API 設定 (Cloudflare Worker 或 Google Web App)
-  cfWorkerUrl: localStorage.getItem('CYBERCLOUD_CF_URL') || ''
+  // 遠端資料庫 API 設定 (預設直連已部署之 Cloudflare Worker)
+  cfWorkerUrl: localStorage.getItem('CYBERCLOUD_CF_URL') || DEFAULT_CF_WORKER_URL
 };
 
 // Web Audio API 音效生成器 (無須外連 mp3)

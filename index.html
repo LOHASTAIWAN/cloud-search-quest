@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <!-- FontAwesome 6 圖示庫 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="style.css?v=3.8.0">
+  <link rel="stylesheet" href="style.css?v=3.9.0">
 </head>
 <body>
 
@@ -209,7 +209,7 @@
             <span id="cloudStatusBadge" class="cloud-status-badge offline">未連線</span>
           </div>
           <div class="cf-input-row">
-            <input type="text" id="cfWorkerInput" placeholder="請輸入 Cloudflare Worker 網址 或 Google Web App 網址" class="form-control">
+            <input type="text" id="cfWorkerInput" placeholder="請輸入 Cloudflare Worker 網址 或 Google Web App 網址" class="form-control" value="https://cybercloud-backend.coral-desk.workers.dev">
             <button class="primary-btn" onclick="saveCfWorkerConfig()">儲存設定</button>
             <button class="secondary-btn" onclick="testCloudConnection()">連線測試</button>
           </div>
@@ -379,8 +379,8 @@
   </div>
 
   <!-- 載入核心題庫、學習單題庫與遊戲引擎 (純 UTF-8) -->
-  <script src="data.js?v=3.8.0"></script>
-  <script src="worksheets_data.js?v=3.8.0"></script>
-  <script src="app.js?v=3.8.0"></script>
+  <script src="data.js?v=3.9.0"></script>
+  <script src="worksheets_data.js?v=3.9.0"></script>
+  <script src="app.js?v=3.9.0"></script>
 </body>
 </html>
