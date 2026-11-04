@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>CyberCloud 雲端神偷特工隊 - 國中資訊科技 108 課綱互動闖關</title>
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <!-- FontAwesome 6 圖示庫 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3.5.0">
 </head>
 <body>
 
@@ -34,6 +37,11 @@
         <!-- 音效開關 -->
         <button id="soundToggleBtn" class="nav-tool-btn" title="切換音效">🔊</button>
 
+        <!-- 學習單總覽入口 -->
+        <button class="nav-tool-btn" onclick="openWorksheetModal(0)" title="查看各單元 Google Docs 學習單">
+          <i class="fa-solid fa-file-lines"></i> 簡答學習單
+        </button>
+
         <!-- 教師管理後台入口 -->
         <button id="btnTeacherPortal" class="nav-admin-btn" title="進入教師管理後台">
           <i class="fa-solid fa-user-shield"></i> 教師後台
@@ -50,36 +58,36 @@
   <!-- 主內容容器 -->
   <main class="main-layout">
 
-    <!-- 畫面 1：學生身分檢核登入 -->
+    <!-- 畫面 1：學生身分檢核登入 (預設空白，無自動代入) -->
     <section id="loginScreen" class="screen-view">
       <div class="login-card-container">
         <div class="login-badge-banner">
           <span class="pulsing-dot"></span> 115 級國中資訊科技素養檢定系統
         </div>
         <h2 class="login-title">特工身分登入檢核</h2>
-        <p class="login-subtitle">請如實填寫學校正式名條資料，系統將即時檢核身分並記錄測驗歷程與成績。</p>
+        <p class="login-subtitle">請如實填寫學校正式名條資料，系統將即時核對身分並記錄測驗歷程與成績。</p>
 
         <div class="login-form">
           <div class="form-group">
             <label for="loginClass"><i class="fa-solid fa-school"></i> 班級</label>
             <select id="loginClass" class="form-control">
-              <option value="">載入中...</option>
+              <option value="">-- 請選擇班級 --</option>
             </select>
           </div>
 
           <div class="form-group">
             <label for="loginSeat"><i class="fa-solid fa-chair"></i> 座號</label>
-            <input type="number" id="loginSeat" class="form-control" placeholder="例如：1" min="1" max="45">
+            <input type="number" id="loginSeat" class="form-control" placeholder="請輸入座號（例如：1）" min="1" max="45" value="">
           </div>
 
           <div class="form-group">
             <label for="loginName"><i class="fa-solid fa-signature"></i> 姓名</label>
-            <input type="text" id="loginName" class="form-control" placeholder="請輸入本名（如：王小明）">
+            <input type="text" id="loginName" class="form-control" placeholder="請輸入姓名（例如：王小明）" value="">
           </div>
 
           <div class="form-group">
             <label for="loginId"><i class="fa-solid fa-id-card"></i> 正式學號</label>
-            <input type="text" id="loginId" class="form-control" placeholder="例如：710001">
+            <input type="text" id="loginId" class="form-control" placeholder="請輸入正式學號（例如：710001）" value="">
           </div>
 
           <div id="loginErrorMsg" class="error-msg-box hidden"></div>
@@ -98,6 +106,7 @@
         <h2 class="lobby-title">雲端與資料科技・8 大特訓單元</h2>
         <p class="lobby-subtitle">
           每單元 15 題（前 10 題為生活核心題，每題 10 分滿分 100 分；後 5 題為時事進階挑戰題，每題 5 分加分）。
+          並提供每單元專屬的 <strong>Google Docs 5 題生活簡答學習單</strong> 供深度探究！
         </p>
       </div>
 
@@ -154,9 +163,14 @@
           <button class="secondary-btn" onclick="showScreen('unitSelectScreen')">
             <i class="fa-solid fa-arrow-left"></i> 返回任務大廳
           </button>
-          <button class="primary-btn" onclick="exportScoresCSV()">
-            <i class="fa-solid fa-file-csv"></i> 匯出全校學生名冊成績 (CSV)
-          </button>
+          <div>
+            <button class="secondary-btn mr-2" onclick="openWorksheetModal(0)">
+              <i class="fa-solid fa-file-word"></i> 檢視 Google Docs 學習單
+            </button>
+            <button class="primary-btn" onclick="exportScoresCSV()">
+              <i class="fa-solid fa-file-csv"></i> 匯出全校學生名冊成績 (CSV)
+            </button>
+          </div>
         </div>
 
         <h2 class="admin-title"><i class="fa-solid fa-chart-line"></i> 教師數據監控中心</h2>
@@ -260,8 +274,40 @@
 
   </main>
 
-  <!-- 載入核心題庫與遊戲引擎 (純 UTF-8) -->
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <!-- Google Docs 學習單彈跳視窗 Modal -->
+  <div id="worksheetModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="modal-tag">GOOGLE DOCS 簡答探究學習單</span>
+          <h3 id="modalWorksheetTitle" class="modal-title">單元 1-1 學習單</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeWorksheetModal()">&times;</button>
+      </div>
+
+      <!-- 單元切換標籤 -->
+      <div id="modalUnitTabs" class="modal-unit-tabs">
+        <!-- 由 app.js 生成 8 個標籤 -->
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-toolbar">
+          <span class="text-muted"><i class="fa-solid fa-lightbulb text-warning"></i> 點擊右方按鈕可一鍵複製整份學習單，直接在 Google Docs 貼上派發給學生！</span>
+          <button class="primary-btn" onclick="copyCurrentWorksheet()">
+            <i class="fa-regular fa-copy"></i> 一鍵複製成 Google Docs 格式
+          </button>
+        </div>
+
+        <div id="modalWorksheetContent" class="worksheet-render-box">
+          <!-- 題目列表渲染區 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 載入核心題庫、學習單題庫與遊戲引擎 (純 UTF-8) -->
+  <script src="data.js?v=3.5.0"></script>
+  <script src="worksheets_data.js?v=3.5.0"></script>
+  <script src="app.js?v=3.5.0"></script>
 </body>
 </html>

@@ -1,5 +1,7 @@
-// CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.0)
-// 支援 115 級學生名條檢核、8大單元120題、每題通過率統計、教師後台成績、提示後查看解答跳下一題、實體快捷鍵防呆
+// CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.5.0)
+// 支援 115 級學生名條檢核、8大單元120題、Google Docs 5題簡答學習單、提示後看解答跳下一題、實體快捷鍵防呆
+
+const APP_VERSION = "3.5.0";
 
 // 系統核心狀態
 const appState = {
@@ -18,6 +20,9 @@ const appState = {
   unitStartTime: null,
   currentUnitResults: [], // [{ qId, correct: true/false, score: number }]
   
+  // 學習單 Modal 當前單元
+  activeWorksheetUnitIdx: 0,
+
   // 後台成績與每題通過率快取 (LocalStorage 快取)
   studentScores: {}, // key: studentId -> { name, class, seat, unitScores: { [unitId]: score } }
   questionStats: {}, // key: qId -> { attempts: 0, correct: 0, passRate: '0%' }
@@ -99,23 +104,31 @@ const sound = new SoundSynthesizer();
 
 // 頁面初始化
 document.addEventListener('DOMContentLoaded', async () => {
+  // 版本控制清理：若本地版本過舊，自動清除歷史工作階段
+  if (localStorage.getItem('CYBERCLOUD_APP_VER') !== APP_VERSION) {
+    sessionStorage.clear();
+    localStorage.setItem('CYBERCLOUD_APP_VER', APP_VERSION);
+  }
+
   await loadStudentRoster();
   loadCachedRecords();
   initLoginScreen();
   initUnitLobby();
   initControls();
-  checkAutoLogin();
+
+  // 需求 1：預設學生個資是空白，一律停留在登入畫面，不自動跳轉
+  showScreen('loginScreen');
 });
 
 // 載入學生名條資料
 async function loadStudentRoster() {
   try {
-    const res = await fetch('students.json');
+    const res = await fetch('students.json?v=' + Date.now());
     if (res.ok) {
       appState.roster = await res.json();
       console.log(`成功載入學生名條，共 ${appState.roster.length} 位學生`);
     } else {
-      console.warn('students.json 讀取失敗，啟用演示模式');
+      console.warn('students.json 讀取失敗，啟用本機演示模式');
     }
   } catch (err) {
     console.warn('無法連線載入名條:', err);
@@ -145,30 +158,43 @@ function persistRecords() {
   localStorage.setItem('CYBERCLOUD_LOGIN_LOGS', JSON.stringify(appState.loginLogs));
 }
 
-// 初始化登入介面
+// 初始化登入介面 (確保預設全部空白)
 function initLoginScreen() {
   const classSelect = document.getElementById('loginClass');
-  if (!classSelect) return;
+  const seatInput = document.getElementById('loginSeat');
+  const nameInput = document.getElementById('loginName');
+  const idInput = document.getElementById('loginId');
+  const errorMsg = document.getElementById('loginErrorMsg');
 
-  const classes = [
-    '七年一班', '七年二班', '七年三班', '七年四班', '七年五班',
-    '七年六班', '七年七班', '七年八班', '七年九班', '七年十班', '七年十一班'
-  ];
+  // 1. 強制重置欄位為空白
+  if (seatInput) seatInput.value = '';
+  if (nameInput) nameInput.value = '';
+  if (idInput) idInput.value = '';
+  if (errorMsg) errorMsg.classList.add('hidden');
 
-  classSelect.innerHTML = '<option value="">-- 請選擇班級 --</option>';
-  classes.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c;
-    opt.textContent = c;
-    classSelect.appendChild(opt);
-  });
+  if (classSelect) {
+    const classes = [
+      '七年一班', '七年二班', '七年三班', '七年四班', '七年五班',
+      '七年六班', '七年七班', '七年八班', '七年九班', '七年十班', '七年十一班'
+    ];
+
+    classSelect.innerHTML = '<option value="">-- 請選擇班級 --</option>';
+    classes.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c;
+      opt.textContent = c;
+      classSelect.appendChild(opt);
+    });
+    classSelect.value = ''; // 預設空白未選
+  }
 
   const loginBtn = document.getElementById('btnDoLogin');
   if (loginBtn) {
-    loginBtn.addEventListener('click', handleStudentLogin);
+    // 移除舊 listener 避免重複綁定
+    loginBtn.onclick = handleStudentLogin;
   }
 
-  // 支援 Enter 登入
+  // 支援 Enter 快捷登入
   ['loginSeat', 'loginName', 'loginId'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
@@ -181,19 +207,20 @@ function initLoginScreen() {
   // 教師後台按鈕
   const teacherBtn = document.getElementById('btnTeacherPortal');
   if (teacherBtn) {
-    teacherBtn.addEventListener('click', openTeacherAuthModal);
+    teacherBtn.onclick = openTeacherAuthModal;
   }
 }
 
 // 處理學生登入檢核
 function handleStudentLogin() {
   const cls = document.getElementById('loginClass').value.trim();
-  const seat = parseInt(document.getElementById('loginSeat').value.trim(), 10);
+  const seatStr = document.getElementById('loginSeat').value.trim();
+  const seat = parseInt(seatStr, 10);
   const name = document.getElementById('loginName').value.trim();
   const studentId = document.getElementById('loginId').value.trim();
 
-  if (!cls || isNaN(seat) || !name || !studentId) {
-    showLoginError('請完整填寫 班級、座號、姓名 與 學號！');
+  if (!cls || !seatStr || isNaN(seat) || !name || !studentId) {
+    showLoginError('請完整填寫 班級、座號、姓名 與 學號 4 個欄位！');
     return;
   }
 
@@ -207,7 +234,7 @@ function handleStudentLogin() {
     );
 
     if (!match) {
-      showLoginError('查無此學生資料！請確認班級、座號、姓名及學號是否與學校名條完全一致。');
+      showLoginError('查無此學生資料！請確認班級、座號、姓名及學號是否與學校正式名條完全一致。');
       return;
     }
   }
@@ -237,9 +264,6 @@ function handleStudentLogin() {
   // 非同步回傳至 Cloudflare Worker
   syncToCloudflare('log_login', appState.currentStudent);
 
-  // 記住登入狀態
-  sessionStorage.setItem('CURRENT_STUDENT', JSON.stringify(appState.currentStudent));
-
   // 轉移畫面至大廳
   showScreen('unitSelectScreen');
   renderStudentProfileBadge();
@@ -255,18 +279,6 @@ function showLoginError(msg) {
     setTimeout(() => el.style.animation = '', 400);
   } else {
     alert(msg);
-  }
-}
-
-function checkAutoLogin() {
-  const stored = sessionStorage.getItem('CURRENT_STUDENT');
-  if (stored) {
-    try {
-      appState.currentStudent = JSON.parse(stored);
-      renderStudentProfileBadge();
-      showScreen('unitSelectScreen');
-      initUnitLobby();
-    } catch(e){}
   }
 }
 
@@ -325,9 +337,14 @@ function initUnitLobby() {
         <span>🎯 題目：${unit.questions.length} 題 (前10題基礎滿分100 + 後5題加分挑戰)</span>
         <span class="unit-score-badge">最佳成績：<strong>${bestScore}</strong></span>
       </div>
-      <button class="start-unit-btn" onclick="startQuestUnit(${idx})">
-        進入挑戰
-      </button>
+      <div class="unit-card-actions">
+        <button class="start-unit-btn" onclick="startQuestUnit(${idx})">
+          <i class="fa-solid fa-play"></i> 進入闖關挑戰
+        </button>
+        <button class="unit-worksheet-btn" onclick="openWorksheetModal(${idx})" title="開啟 Google Docs 5 題生活簡答學習單">
+          <i class="fa-solid fa-file-pen"></i> Google Docs 5題簡答學習單
+        </button>
+      </div>
     `;
     grid.appendChild(card);
   });
@@ -393,7 +410,7 @@ function renderCurrentQuestion() {
   renderInteractiveInput(q);
 }
 
-// 格式化題目內容
+// 格式化題目內容 (替換 [BLANK] 標籤為美觀的填空位置，杜絕 HTML 屬性外漏)
 function formatPromptContent(q) {
   if (q.type === 'cloze') {
     return q.prompt.replace(/\[\s*BLANK\s*\]/g, '<span class="cloze-blank">【 ？ 填空位置 】</span>');
@@ -412,7 +429,7 @@ function renderInteractiveInput(q) {
     wrapper.className = 'cloze-input-wrapper';
     wrapper.innerHTML = `
       <div class="input-action-bar">
-        <input type="text" id="clozeInput" class="game-input" placeholder="請在此輸入答案（或可直接按下快捷鍵組合）" autocomplete="off" autofocus />
+        <input type="text" id="clozeInput" class="game-input" placeholder="請在此輸入答案（或可直接按下鍵盤快捷鍵）" autocomplete="off" autofocus />
         <button id="btnSubmitCloze" class="primary-btn">確認送出</button>
       </div>
       <div class="hint-action-bar">
@@ -716,7 +733,7 @@ function renderResultScreen(res) {
   if (!container) return;
 
   let evaluation = '';
-  if (res.finalTotalScore >= 115) evaluation = '🏆 神級駭客特工！完美的數位思維與時事實在力！';
+  if (res.finalTotalScore >= 115) evaluation = '🏆 神級駭客特工！完美的數位思維與時事實踐力！';
   else if (res.finalTotalScore >= 100) evaluation = '🌟 菁英特工！基礎題滿分，挑戰題表現亮眼！';
   else if (res.finalTotalScore >= 80) evaluation = '✨ 優秀特工！已具備穩健的雲端與資料觀念！';
   else if (res.finalTotalScore >= 60) evaluation = '👍 合格特工！基礎觀念及格，可再多複習挑戰題！';
@@ -753,6 +770,7 @@ function renderResultScreen(res) {
 
     <div class="result-actions-row">
       <button class="primary-btn" onclick="startQuestUnit(appState.activeUnitIdx)">🔄 再挑戰一次</button>
+      <button class="secondary-btn" onclick="openWorksheetModal(appState.activeUnitIdx)">📑 檢視本單元 Google Docs 簡答題</button>
       <button class="secondary-btn" onclick="showScreen('unitSelectScreen'); initUnitLobby();">🏠 返回單元大廳</button>
     </div>
   `;
@@ -798,7 +816,6 @@ function openTeacherAuthModal() {
 
 // 渲染教師後台儀表板
 function renderTeacherDashboard() {
-  // 1. 基本數據統計
   const totalStudents = appState.roster.length || 318;
   const testedStudentIds = Object.keys(appState.studentScores);
   const testedCount = testedStudentIds.length;
@@ -806,16 +823,10 @@ function renderTeacherDashboard() {
   document.getElementById('statTotalTested').textContent = `${testedCount} / ${totalStudents} 人`;
   document.getElementById('statTotalLogins').textContent = `${appState.loginLogs.length} 人次`;
 
-  // 2. 班級平均表現表格
   renderClassScoreTable();
-
-  // 3. 題目通過率排行榜 (標記易錯題)
   renderQuestionPassRateTable();
-
-  // 4. 最新登入日誌
   renderRecentLoginLogs();
 
-  // 5. Worker URL 設定
   const workerInput = document.getElementById('cfWorkerInput');
   if (workerInput) {
     workerInput.value = appState.cfWorkerUrl;
@@ -864,7 +875,6 @@ function renderQuestionPassRateTable() {
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  // 遍歷所有 120 題
   let allQuestions = [];
   QUEST_DATA.units.forEach(u => {
     u.questions.forEach(q => {
@@ -949,6 +959,113 @@ window.exportScoresCSV = function() {
   a.click();
 };
 
+// =========================================================================
+// Google Docs 5 題生活簡答學習單 Modal 控制
+// =========================================================================
+window.openWorksheetModal = function(unitIdx) {
+  if (typeof WORKSHEET_DATA === 'undefined') {
+    alert('學習單題庫正在載入中，請稍候！');
+    return;
+  }
+  appState.activeWorksheetUnitIdx = unitIdx || 0;
+  
+  const modal = document.getElementById('worksheetModal');
+  if (modal) modal.classList.remove('hidden');
+
+  renderWorksheetModalContent();
+};
+
+window.closeWorksheetModal = function() {
+  const modal = document.getElementById('worksheetModal');
+  if (modal) modal.classList.add('hidden');
+};
+
+function renderWorksheetModalContent() {
+  const unitIdx = appState.activeWorksheetUnitIdx;
+  const ws = WORKSHEET_DATA[unitIdx];
+  if (!ws) return;
+
+  document.getElementById('modalWorksheetTitle').textContent = ws.unitTitle;
+
+  // 渲染單元切換按鈕
+  const tabsContainer = document.getElementById('modalUnitTabs');
+  if (tabsContainer) {
+    tabsContainer.innerHTML = '';
+    WORKSHEET_DATA.forEach((item, idx) => {
+      const tabBtn = document.createElement('button');
+      tabBtn.className = `ws-tab-btn ${idx === unitIdx ? 'active' : ''}`;
+      tabBtn.textContent = `單元 0${idx + 1}`;
+      tabBtn.onclick = () => {
+        appState.activeWorksheetUnitIdx = idx;
+        renderWorksheetModalContent();
+      };
+      tabsContainer.appendChild(tabBtn);
+    });
+  }
+
+  // 渲染 5 道簡答題內容
+  const contentArea = document.getElementById('modalWorksheetContent');
+  if (!contentArea) return;
+
+  contentArea.innerHTML = '';
+  ws.questions.forEach(q => {
+    const card = document.createElement('div');
+    card.className = 'ws-question-card';
+    card.innerHTML = `
+      <div class="ws-q-header">
+        <span class="ws-q-badge">第 ${q.qNum} 題</span>
+        <span class="ws-q-title">${escapeHtml(q.title)}</span>
+        <span class="ws-q-words">${escapeHtml(q.wordCount)}</span>
+      </div>
+      <div class="ws-scenario-box">
+        <strong>📌 生活情境：</strong> ${escapeHtml(q.scenario)}
+      </div>
+      <div class="ws-prompt-box">
+        <strong>🎯 思考任務：</strong> ${escapeHtml(q.prompt)}
+      </div>
+      <div class="ws-answer-box">
+        <details>
+          <summary><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師參考解答與評量指引</summary>
+          <div class="ws-sample-answer-text">${escapeHtml(q.sampleAnswer).replace(/\n/g, '<br>')}</div>
+        </details>
+      </div>
+    `;
+    contentArea.appendChild(card);
+  });
+}
+
+// 一鍵複製當前單元學習單成 Google Docs 純文字格式
+window.copyCurrentWorksheet = function() {
+  const ws = WORKSHEET_DATA[appState.activeWorksheetUnitIdx];
+  if (!ws) return;
+
+  let text = `【國中資訊科技 108 課綱】課堂探究與生活實踐簡答學習單\n`;
+  text += `${ws.unitTitle}\n`;
+  text += `班級：________ 座號：____ 姓名：____________ 學號：__________\n\n`;
+  text += `------------------------------------------------------------\n\n`;
+
+  ws.questions.forEach(q => {
+    text += `【第 ${q.qNum} 題】${q.title} (${q.wordCount})\n`;
+    text += `[生活情境] ${q.scenario}\n`;
+    text += `[思考任務] ${q.prompt}\n\n`;
+    text += `[學生作答區]：\n\n\n`;
+    text += `------------------------------------------------------------\n\n`;
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    alert(`✅ 已成功將《${ws.unitTitle}》5 題 Google Docs 簡答學習單複製至剪貼簿！\n您可以直接前往 Google 文件 (Google Docs) 按下 Ctrl+V 貼上派發給學生！`);
+  }).catch(() => {
+    // 備用方案
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert(`✅ 已複製至剪貼簿！可直接貼至 Google Docs。`);
+  });
+};
+
 // 控制項初始化
 function initControls() {
   const soundBtn = document.getElementById('soundToggleBtn');
@@ -974,6 +1091,11 @@ function initControls() {
     logoutBtn.addEventListener('click', () => {
       sessionStorage.removeItem('CURRENT_STUDENT');
       appState.currentStudent = null;
+      // 登出時清空輸入框
+      document.getElementById('loginSeat').value = '';
+      document.getElementById('loginName').value = '';
+      document.getElementById('loginId').value = '';
+      document.getElementById('loginClass').value = '';
       showScreen('loginScreen');
     });
   }
