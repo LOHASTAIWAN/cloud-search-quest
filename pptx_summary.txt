@@ -1,0 +1,105 @@
+=== ppt/slides/slide1.xml ===
+雲端 運算 服務 與 資料處理 第二章 1-1 瀏覽器使用技巧 1-2 網路資料搜尋技巧 1-3 雲端硬碟共創工具 雲端運算服務
+
+=== ppt/slides/slide2.xml ===
+南一國中科技 YouTube 頻道 單元二 雲端運算服務 精選電子書影音 章節排列 影片推薦分享
+
+=== ppt/slides/slide3.xml ===
+雲端運算服務 1 雲端運算服務就像一個 巨大的數位資料倉庫 ，可以隨時隨地存取和處理各種檔案，也提供各種實用的線上應用程式，讓我們的生活更加便利。 學習前導影片： 【Cheap 教你金融科技力 】 計算帶我上雲端～雲端運算是在算什麼東東？｜ EP.2
+
+=== ppt/slides/slide4.xml ===
+雲端運算 「雲端」 一詞源於英文術語 「 cloud 」，因過去人們常在網路結構圖上用一朵雲來代表網際網路而得名。而雲端運算，就是將資料的儲存與運算透過網際網路交由遠端的服務供應商處理，更簡單的說，只要使用者能 透過網際網路由用戶端登入遠端伺服器進行操作 ，就稱之為雲端運算 (Cloud Computing) 。 雲端服務 雲端服務 (Cloud Services) 是 基於雲端運算模型提供的運算資源、應用程式或資料儲存等服務 。透過雲端服務，我們可以在網路上輕鬆儲存、管理和分享資料，還能使用各種實用的軟體和工具，幫助我們完成任務。 本章節我們將學習瀏覽器使用技巧、資料搜尋技巧，並利用著名的雲端服務商─ Google ，來認識雲端應用程式的操作方式。 搭配頁碼:P 135
+
+=== ppt/slides/slide5.xml ===
+1. 將實體資源虛擬化： 將硬體資源（例如：硬碟、主機）虛擬化提供給使用者，不受時間地點限制，靈活度及便利性更高。 2. 提高管理效率： 雲端具有高度自動化的管理功能，例如：資源配置、擴充、監控等。這使得管理者可以更有效率分配整個雲端資源。 遠端伺服器 搭配頁碼:P 135
+
+=== ppt/slides/slide6.xml ===
+生活案例 便利的雲端運算服務
+
+=== ppt/slides/slide7.xml ===
+瀏覽器使用技巧 1-1 Google Chrome 是由 Google 公司開發的一款網頁瀏覽器，具有 快速 、 安全 且 多功能 的優點，簡潔的使用介面和方便的功能讓它成為全球使用最廣泛的瀏覽器之一， 學會運用一些小技巧可以幫助我們 更有效率 、 更輕鬆 的使用它。 學習前導影片： 學起來！ Google 搜尋欄這樣打，幫你快速精準找到需要資料！ 搭配頁碼:P 136
+
+=== ppt/slides/slide8.xml ===
+如果遇到瀏覽器意外關閉的情況，想要恢復被關閉的分頁，可以點選功能表「 … 」的「記錄」恢復。另一個更快的方法是利用快捷鍵，只要打開一個新的瀏覽器視窗，按住鍵盤上的 Ctrl+Shift+T 鍵， 分頁將按被關閉的順序重新開啟。
+
+=== ppt/slides/slide9.xml ===
+在開啟的 Chrome 瀏覽器視窗，點選網址旁邊的「★」或是按下 Ctrl+D 鍵，可以將當前分頁中的網頁儲存為書籤，方便下次訪問。 搭配頁碼:P 136
+
+=== ppt/slides/slide10.xml ===
+無痕模式（ Incognito Mode ）是一種私密瀏覽模式，不會保留使用者的瀏覽紀錄及下載紀錄，可以點選「 … 」功能表開啟，或是按下 Ctrl + Shift+ N ，即可開啟無痕模式。 搭配頁碼:P 136
+
+=== ppt/slides/slide11.xml ===
+網路資料搜尋技巧 1-2 瀏覽器是我們在網路上尋找資訊的工具。讓我們一起學習如何更有效地在網路上找到我們需要的資料吧！網路上有豐富的資源，例如：網站、文章、影片和圖片等，我們需要一些 技巧 來幫助我們找到真正需要的資訊。
+
+=== ppt/slides/slide12.xml ===
+我們經常希望限定搜尋範圍在特定的範圍內，例如：在特定年份、價格區間、特定地區或其他數值範圍。這時，使用 「 .. 」 就能夠 快速鎖定搜尋範圍 。它能夠迅速縮小搜尋範圍，使用者只會看到符合設定的特定數值範圍的結果。 在兩個關鍵字中 加上 .. 快速鎖定搜尋範圍 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide13.xml ===
+當我們想搜尋特定資料時，盡量使用簡潔的詞彙來描述想要搜索的內容，避免過於複雜或冗長的敘述，可以確保搜索結果更準確。 在搜尋列輸入關鍵字 直接搜尋 搭配頁碼:P 138 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide14.xml ===
+在使用 Google 搜尋時，可能會遇到許多相關的搜尋結果，但有時需要找到確切包含某個詞語資源，這就是使用「雙引號」的時候，使用雙引號，搜尋引擎只會找和關鍵字完全吻合的結果，可以過濾掉與主題相關但不完全匹配的內容，節省時間並提供更準確的訊息。 在關鍵字前後加上 雙引號”” 精準搜尋 搭配頁碼:P 139 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide15.xml ===
+搜尋時，使用「 關鍵字 filetype: 檔案格式 」，能夠針對特定文件類型進行精確搜索，更快速找到所需的資料。 Filetype 的魔法 進階搜尋技巧 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide16.xml ===
+使用按鍵「 / 」是在瀏覽器中一個快速回到搜尋列的快捷鍵。這個功能可以重新聚焦到瀏覽器上的搜尋處，能夠迅速進行新一輪的搜尋。 「 / 」的秘密 進階搜尋技巧 Wordwall 瀏覽器及網路資料搜尋技巧 搭配頁碼:P 140 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide17.xml ===
+牛刀小試 利用搜尋技巧搜尋資料並回答下方的問題 燙傷是一種常見的意外，在不同的地區和不同文化裡，人們會使用不同的方法來處理燙傷的傷口，這些方法可能涉及到各種自然材料和特定的處理方式。 燙傷是一種物理傷害，可能會引起紅腫、水泡或皮膚損傷，如果遇到較嚴重的燙傷情況，還是要尋求專業醫療幫助喔！ 你找得到資料嗎 ? 是使用什麼關鍵字找到的呢 ? 這些處理方式是正確的嗎 ? 搭配頁碼:P 141
+
+=== ppt/slides/slide18.xml ===
+在進行資料搜尋時，點選「工具」進行篩選，可以節省時間並提高搜索效率。 好用的工具 進階搜尋技巧 搭配頁碼:P 142 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide19.xml ===
+以圖搜圖 進階搜尋技巧 除了使用文字進行搜索外， Google 也提供「以圖搜圖」的功能，能夠透過圖像來尋找相關的內容，在不知道確切詞語或關鍵字的情況下特別有用，例如：在旅行中看到了一個景點，但不知道它的名稱，可以拍照後通過以圖搜圖功能來找到相關的訊息。 搭配頁碼:P 142 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide20.xml ===
+牛刀小試 利用搜尋技巧搜尋資料並回答下方的問題 近年來，韓國流行文化風潮如洪流席捲美國。其中，防彈少年團（以下簡稱 BTS ）作為代表嶄露頭角。他們在葛萊美獎的舞台上展現了精湛的演出，並在聯合國發表了深具意義的演說， BTS 用他們的音樂和表演，讓世界感受到他們內心深處的能量和情感，他們的自信不僅來自於音樂，更源於對於自己文化的驕傲。 搭配頁碼:P 143
+
+=== ppt/slides/slide21.xml ===
+雲端硬碟共創工具 1-3 在過去，我們總是必須依賴傳統硬碟或隨身碟來儲存我們的檔案。現在有了雲端硬碟，我們不再受限於實體裝置的容量和位置，取而代之的是一個可以根據不同需求調整的虛擬空間。 透過網路 ，我們可以將重要的文件、照片、影片、音樂和其他數位 資產存放在雲端 ，並 隨時存取 ，除了自己可以編輯，也可以跟別人協同編輯，這樣同學們一起做報告就方便了許多。
+
+=== ppt/slides/slide22.xml ===
+雲端硬碟共創工具 1-3 回顧數位儲存裝置的演進，我們曾經使用磁 片、光碟和 USB 隨身碟等來儲存資料。雖然 已逐漸被淘汰，但許多介面的「儲存」按鈕 仍會以磁片作為圖示， 2000 年後， USB 隨身 碟技術的成熟更加便利了檔案的傳輸和儲存。然 而，傳統的數位資訊儲存媒介存在著容量有限、 易損壞、易遺失等種種問題，限制了我們在數位 資訊儲存方面的自由。隨著雲端硬碟的興起，為 我們提供了更便捷、更安全的儲存方式。以 Google 雲端硬碟 為例，其基礎操作包括： 新增資料夾、共享設定及資料備份 ，在 Google 的雲端系統中，又 結合了各種應用程式 ，進一步擴展了這種便利性。
+
+=== ppt/slides/slide23.xml ===
+將需要分類管理的文件建立資料夾，例如：資訊課的上課作業需要新增一個資訊課的資料夾來管理。 新增資料夾 搭配頁碼:P 145 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide24.xml ===
+牛刀小試 搭配頁碼:P 145
+
+=== ppt/slides/slide25.xml ===
+在 Google 雲端中，我們可以設定資料夾、文件和各種檔案的共享權限，從而決定誰可以查看、編輯或共享這些內容，根據文件的共享設定，使用者需要獲得特定的權限才能訪問共享的內容。此外，如果想更改共享設定，可以返回「共享」選項並做出修改。 資料夾共享設定 搭配頁碼:P 146 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide26.xml ===
+輸入電子郵件地址，提供不同訪問權限。 方法一 搭配頁碼:P 146 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide27.xml ===
+通過分享的連結來訪問檔案。 方法二 搭配頁碼:P 147 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide28.xml ===
+智慧王 與他人共用檔案時，可以設定對方的存取層級為檢視者、加註者或編輯者。 Google 的雲端應用程式一次最多可以在 100 個分頁或裝置中開啟供使用者編輯，一個檔案最多能與 600 個個別電子郵件地址共用，如果同時有超過 100 個開啟的檔案項目，則只有擁有者和部分具備編輯權限的使用者可以編輯檔案。 當同學們在「資料夾」中選擇共享後，資料夾裡的所有內容（包括文件和其他資料夾）將根據你的共享設定沿用權限。表示如果你將一個資料夾共享出去，對方將可以訪問該資料夾中的所有內容。 ※ 可以根據需求調整單一檔案的權限。
+
+=== ppt/slides/slide29.xml ===
+無論是個人還是學校，利用雲端來管理、儲存和交換資料已經變得普遍。然而，技術故障、硬體損壞、網路問題或意外刪除可能會導致遺失這些寶貴的資料，為了預防資料遺失或損毀的風險，進行 資料備份 就變得很重要，透過定期的備份，我們能夠 建立一個保護機制 ，當資料儲存在多個地方時，即使一處發生問題，我們仍能夠輕鬆的恢復資料，確保工作或學習持續進行。備份不僅僅是一種技術上的行為，更是一種負責任和有智慧的做法，它提醒我們，數位時代的便利性背後，資訊安全依然是我們應該關心的重點目標。 資料備份 從雲端下載資料到電腦 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide30.xml ===
+從電腦上傳資料到雲端 搭配頁碼:P 150
+
+=== ppt/slides/slide31.xml ===
+牛刀小試 搭配頁碼:P 150
+
+=== ppt/slides/slide32.xml ===
+在這個數位時代，不管是學習還是工作，經常會需要處理文件、收集資料、製作報告和簡報。 Google 雲端提供了一系列強大又方便的應用程式，並且可以與團隊成員共享和協作，讓我們可以更輕鬆的處理任務，這些應用程式透過雲端運算，可以直接使用 不用另外安裝軟體，減少維護安裝軟體的時間與成本 ，隨著網路的快速發展，雲端服務更是日新月異， Google 、亞馬遜及微軟公司都將雲端運算當成企業的營運目標。 Google 的應用程式集是一個功能強大的魔法盒，從查找資訊到管理日程，再到創作、娛樂和溝通，這些軟體讓日常生活中的任務能更輕鬆地完成，我們將在下一節介紹其中的實用工具： 文件、試算表、簡報 以及 表單 。 資料備份 常用 Google 應用程式 搭配頁碼:P 151 style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility ppt_x ppt_y style.visibility
+
+=== ppt/slides/slide33.xml ===
+牛刀小試 找一找，哪一些是 Google 提供的雲端應用程式寶藏呢？ Wordwall 認識 Google 雲端應用程式 搭配頁碼:P 151
+
+=== ppt/slides/slide34.xml ===
+{8799B23B-EC83-4686-B30A-512413B5E67A} 1 雲端運算 Cloud Computing 2 雲端服務 Cloud Services 3 文件類型 File type 單元 2 第 1 章 雲端運算服務
+
+=== ppt/slides/slide35.xml ===
+
+
