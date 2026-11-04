@@ -1,0 +1,11 @@
+name = "cybercloud-backend"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# 學生與各題通過率持久化儲存 KV 命名空間 (可選綁定)
+# [[kv_namespaces]]
+# binding = "SCORES_KV"
+# id = "<YOUR_KV_NAMESPACE_ID>"
+
+[vars]
+ENVIRONMENT = "production"

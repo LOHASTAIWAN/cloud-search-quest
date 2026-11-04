@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CyberCloud 雲端神搜特工隊 - 國中資訊科技互動闖關學習網</title>
-  <!-- FontAwesome 圖標庫 -->
+  <title>CyberCloud 雲端神搜特工隊 - 國中資訊科技 108 課綱互動闖關學習網</title>
+  <!-- FontAwesome 6 圖標庫 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <!-- 主要樣式表 -->
   <link rel="stylesheet" href="style.css">
@@ -14,36 +14,40 @@
   <!-- 頂部導覽列 -->
   <nav class="navbar">
     <div class="nav-container">
-      <div class="brand" onclick="location.reload()">
+      <div class="brand" onclick="appNav.goToHub()">
         <div class="brand-icon">
           <i class="fa-solid fa-cloud-bolt"></i>
         </div>
         <div class="brand-text">
           <h1>CyberCloud 雲端神搜特工隊</h1>
-          <p>國中資訊科技 108 課綱 CH2-1 互動實戰任務</p>
+          <p>國中資訊科技 108 課綱南一版 1上 Ch2 全單元實戰系統</p>
         </div>
       </div>
 
-      <!-- 特工狀態儀表 -->
+      <!-- 特工狀態儀表與後台入口 -->
       <div class="agent-status-bar">
-        <div class="status-badge" style="border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">
-          <i class="fa-solid fa-user-secret"></i>
-          <span id="agentNameDisplay">實習特工</span>
+        <div class="status-badge" id="studentBadge" style="border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; display: none;">
+          <i class="fa-solid fa-user-check"></i>
+          <span id="agentNameDisplay">未登入</span>
+          <button class="logout-link-btn" onclick="appNav.logout()" title="切換學生登入"><i class="fa-solid fa-right-from-bracket"></i></button>
         </div>
-        <div class="status-badge hp">
+        <div class="status-badge hp" id="hpBadge" style="display: none;">
           <i class="fa-solid fa-shield-heart"></i>
           <span id="hpDisplay">100%</span>
         </div>
-        <div class="status-badge xp">
+        <div class="status-badge xp" id="xpBadge" style="display: none;">
           <i class="fa-solid fa-bolt"></i>
           <span id="xpDisplay">0 XP</span>
         </div>
-        <div class="status-badge combo">
+        <div class="status-badge combo" id="comboBadge" style="display: none;">
           <i class="fa-solid fa-fire"></i>
           <span id="comboDisplay">0 Combo</span>
         </div>
         <button class="audio-toggle-btn" id="audioToggleBtn" title="切換音效">
           <i class="fa-solid fa-volume-high"></i>
+        </button>
+        <button class="admin-btn" id="openAdminBtn" onclick="appNav.openAdminModal()" title="開啟教師監控管理後台">
+          <i class="fa-solid fa-chalkboard-user"></i> <span>教師後台</span>
         </button>
       </div>
     </div>
@@ -52,59 +56,82 @@
   <!-- 主內容容器 -->
   <main class="main-wrapper">
 
-    <!-- 視圖 1：首頁歡迎與特工登記 -->
-    <section id="heroView" class="glass-panel hero-view">
+    <!-- 視圖 1：學生個人身分檢核登入閘門 (Login Gate) -->
+    <section id="loginView" class="glass-panel login-view">
       <div class="hero-tag">
-        <i class="fa-solid fa-award"></i> 國中生生活案例 × 全情境實戰驗證
+        <i class="fa-solid fa-id-card-clip"></i> 115 學年度中一學生身分檢核防線
       </div>
-      <h2 class="hero-title">解開雲端密碼，成為校園神搜大師！</h2>
+      <h2 class="hero-title">特工身分認證閘口</h2>
       <p class="hero-subtitle">
-        告別死背課本！從分組報告分頁手滑誤關、以圖搜圖找未知昆蟲、到運用 <code>site:</code> 與 <code>filetype:</code> 挖出歷屆會考官方題庫與雲端權限防禦，共 30 道真實情境互動試煉等你破解！
+        本測驗系統已匯入七年級全年級 318 位學生官方名條。請輸入您本人的<strong>班級、座號、姓名與 7 碼學號</strong>，驗證無誤後即可啟動專題闖關，系統將如實記錄登入時間與各單元通過歷程！
       </p>
 
-      <!-- 三大關卡預覽方塊 -->
-      <div class="level-cards-grid">
-        <div class="level-preview-card" style="border-top: 3px solid #38bdf8;">
-          <div class="card-step-tag">LEVEL 01 // 10 題</div>
-          <div class="card-title"><i class="fa-solid fa-cloud-bolt" style="color:#38bdf8"></i> 基底整備</div>
-          <div class="card-desc">Chrome 瀏覽器神級快捷鍵（分頁還原、無痕防護、書籤）、雲端運算虛擬化與 Google 辦公四寶生活活用。</div>
+      <form class="student-auth-card" id="studentLoginForm" onsubmit="event.preventDefault(); appNav.handleStudentLogin();">
+        <div class="form-grid">
+          <div class="form-group">
+            <label><i class="fa-solid fa-school"></i> 班級</label>
+            <select id="loginClassSelect" class="agent-input" required>
+              <option value="">-- 請選擇班級 --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-hashtag"></i> 座號</label>
+            <input type="number" id="loginSeatInput" class="agent-input" placeholder="例如：1" min="1" max="40" required>
+          </div>
         </div>
-        <div class="level-preview-card" style="border-top: 3px solid #10b981;">
-          <div class="card-step-tag">LEVEL 02 // 10 題</div>
-          <div class="card-title"><i class="fa-solid fa-magnifying-glass-location" style="color:#10b981"></i> 雷達開展</div>
-          <div class="card-desc">去蕪存菁關鍵字、空格 AND 交集、減號排除干擾、連續數值 <code>..</code>、Google Lens 以圖搜圖與行銷廣告辨別。</div>
-        </div>
-        <div class="level-preview-card" style="border-top: 3px solid #c084fc;">
-          <div class="card-step-tag">LEVEL 03 // 10 題</div>
-          <div class="card-title"><i class="fa-solid fa-user-shield" style="color:#c084fc"></i> 神搜奧義</div>
-          <div class="card-desc">雙引號精確吻合、<code>filetype:</code> 簡報文件直抓、<code>site:edu.tw</code> 官方鎖定、三級雲端權限與版本歷史時光機。</div>
-        </div>
-      </div>
 
-      <!-- 特工身分登記輸入框 -->
-      <div class="agent-init-form">
-        <div class="form-group">
-          <label><i class="fa-solid fa-school"></i> 學校與班級座號</label>
-          <input type="text" id="inputSchoolClass" class="agent-input" placeholder="例如：中正國中 703 班 15 號" value="國中資訊科技特工班">
+        <div class="form-grid">
+          <div class="form-group">
+            <label><i class="fa-solid fa-user"></i> 學生姓名</label>
+            <input type="text" id="loginNameInput" class="agent-input" placeholder="請輸入本名（如：王紹宇）" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label><i class="fa-solid fa-barcode"></i> 學號（7碼）</label>
+            <input type="text" id="loginStudentIdInput" class="agent-input" placeholder="例如：1150001" required autocomplete="off">
+          </div>
         </div>
-        <div class="form-group">
-          <label><i class="fa-solid fa-id-badge"></i> 特工英雄代號（學生姓名）</label>
-          <input type="text" id="inputAgentName" class="agent-input" placeholder="請輸入您的姓名或暱稱" value="神搜小達人">
-        </div>
-      </div>
 
-      <button id="startGameBtn" class="start-btn">
-        <i class="fa-solid fa-play"></i> 接受委託・啟動特工任務
-      </button>
+        <div id="loginFeedback" class="login-feedback-box" style="display: none;"></div>
+
+        <button type="submit" class="start-btn" style="width: 100%; margin-top: 1rem;">
+          <i class="fa-solid fa-shield-halved"></i> 驗證特工身分・進入任務大廳
+        </button>
+      </form>
     </section>
 
-    <!-- 視圖 2：遊戲任務挑戰區 (Game Arena) -->
+    <!-- 視圖 2：單元選擇大廳 (Unit Quest Hub) -->
+    <section id="hubView" class="glass-panel hub-view" style="display: none;">
+      <div class="hub-header">
+        <div>
+          <span class="hero-tag"><i class="fa-solid fa-gamepad"></i> 國中資訊科技 8 大單元闖關大廳</span>
+          <h2 style="font-size: 1.8rem; font-weight: 800; color: #fff; margin-top: 0.3rem;" id="welcomeStudentTitle">特工任務選單</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem;" id="loginTimestampText">登入時間：-</p>
+        </div>
+        <div class="hub-stat-pill">
+          <span>全域進度：<strong id="completedUnitsCount">0</strong> / 8 單元</span>
+        </div>
+      </div>
+
+      <!-- 第一章：雲端運算服務與網路搜尋技巧 (Ch2-1) -->
+      <div class="chapter-block">
+        <h3 class="chapter-title"><i class="fa-solid fa-cloud"></i> 第一章：雲端運算服務與網路搜尋技巧 (Ch2-1)</h3>
+        <div class="units-grid" id="chapter1Grid"></div>
+      </div>
+
+      <!-- 第二章：資料與資訊應用專題 (Ch2-2 SDGs 低碳生活) -->
+      <div class="chapter-block" style="margin-top: 2rem;">
+        <h3 class="chapter-title"><i class="fa-solid fa-leaf" style="color: #10b981;"></i> 第二章：資料與資訊應用專題（SDGs 低碳生活）(Ch2-2)</h3>
+        <div class="units-grid" id="chapter2Grid"></div>
+      </div>
+    </section>
+
+    <!-- 視圖 3：闖關答題介面 (Game Arena) -->
     <section id="gameView" class="glass-panel question-arena" style="display: none;">
       <!-- 進度指示器 -->
       <div class="level-progress-wrapper">
         <div class="progress-header">
           <div class="current-level-badge" id="levelBadge">
-            <i class="fa-solid fa-cloud-bolt"></i> 第一關：【基底整備】雲端與瀏覽器實戰特訓
+            <i class="fa-solid fa-cloud-bolt"></i> 單元名稱
           </div>
           <div class="question-counter" id="questionCounter">
             第 1 / 10 題
@@ -142,9 +169,14 @@
 
       <!-- 按鈕控制操作列 -->
       <div class="action-controls-bar">
-        <button class="hint-trigger-btn" id="hintBtn">
-          <i class="fa-solid fa-lightbulb"></i> 特工錦囊（取得提示）
-        </button>
+        <div>
+          <button class="return-hub-btn" onclick="appNav.goToHub()">
+            <i class="fa-solid fa-arrow-left"></i> 回任務大廳
+          </button>
+          <button class="hint-trigger-btn" id="hintBtn" style="margin-left: 0.5rem;">
+            <i class="fa-solid fa-lightbulb"></i> 特工錦囊
+          </button>
+        </div>
 
         <div>
           <button class="submit-ans-btn" id="submitBtn">
@@ -157,30 +189,35 @@
       </div>
     </section>
 
-    <!-- 視圖 3：關卡過場慶祝彈窗 (Level Clear Modal) -->
+    <!-- 視圖 4：單元通關過場彈窗 (Level Clear Modal) -->
     <section id="levelClearModal" class="glass-panel level-clear-modal" style="display: none;">
       <div class="clear-badge-icon">
         <i class="fa-solid fa-trophy"></i>
       </div>
-      <h2 id="clearedLevelTitle" style="font-size: 2rem; color: #fff; margin-bottom: 0.5rem;">恭喜通關！</h2>
+      <h2 id="clearedLevelTitle" style="font-size: 2rem; color: #fff; margin-bottom: 0.5rem;">單元通關完成！</h2>
       <div id="clearedBadgeName" style="color: #f59e0b; font-size: 1.25rem; font-weight: 700; margin-bottom: 1.2rem;"></div>
-      <p id="clearedLevelSummary" style="color: #cbd5e1; max-width: 600px; margin: 0 auto 2rem; line-height: 1.7;"></p>
-      
-      <button id="nextLevelProceedBtn" class="start-btn" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
-        前進下一關試煉 <i class="fa-solid fa-chevron-right"></i>
-      </button>
+      <p id="clearedLevelSummary" style="color: #cbd5e1; max-width: 600px; margin: 0 auto 1.5rem; line-height: 1.7;"></p>
+
+      <div class="clear-action-buttons">
+        <button onclick="appNav.goToHub()" class="start-btn" style="background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);">
+          <i class="fa-solid fa-list-check"></i> 返回單元大廳
+        </button>
+        <button id="nextLevelProceedBtn" class="start-btn" style="background: linear-gradient(135deg, #059669 0%, #10b981 100%);">
+          挑戰下一單元 <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
     </section>
 
-    <!-- 視圖 4：最終證書大廳 (Certificate Hall) -->
+    <!-- 視圖 5：最終大滿貫證書大廳 (Certificate Hall) -->
     <section id="certView" class="glass-panel certificate-view" style="display: none;">
       <div style="font-size: 3rem; color: #f59e0b; margin-bottom: 0.5rem;">
         <i class="fa-solid fa-medal"></i>
       </div>
       <h2 style="font-size: 2.2rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem;">
-        🎉 恭喜特工全域通關！達成 30 道大滿貫！
+        🎉 恭喜特工達成 8 大單元大滿貫！
       </h2>
       <p style="color: var(--text-muted); margin-bottom: 1.5rem;">
-        您已成功通過國中資訊科技 108 課綱雲端與搜尋全部試煉，特頒發此官方數位認證證書！
+        您已成功通過國中資訊科技 108 課綱雲端、搜尋與 SDGs 資料應用全部試煉，特頒發官方合格證書！
       </p>
 
       <!-- 證書 Canvas 預覽區 -->
@@ -196,21 +233,133 @@
         <button id="printCertBtn" class="cert-print-btn">
           <i class="fa-solid fa-print"></i> 列印 / 另存為 PDF
         </button>
-        <button id="restartBtn" class="cert-print-btn" style="background: #1e293b;">
-          <i class="fa-solid fa-rotate-left"></i> 重新挑戰
+        <button onclick="appNav.goToHub()" class="cert-print-btn" style="background: #1e293b;">
+          <i class="fa-solid fa-house"></i> 回任務大廳
         </button>
       </div>
     </section>
 
   </main>
 
+  <!-- 教師監控管理後台彈窗 (Admin Center Modal) -->
+  <div class="admin-modal-backdrop" id="adminModal" style="display: none;">
+    <div class="admin-modal-dialog">
+      <div class="admin-header">
+        <div class="admin-title">
+          <i class="fa-solid fa-server" style="color: #38bdf8;"></i>
+          <span>資訊科技教師後台監控中心 (Cloudflare Backend)</span>
+        </div>
+        <button class="modal-close-btn" onclick="appNav.closeAdminModal()">&times;</button>
+      </div>
+
+      <div class="admin-body">
+        <!-- 密碼解鎖層 -->
+        <div id="adminAuthLock" class="admin-lock-screen">
+          <i class="fa-solid fa-lock" style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 1rem;"></i>
+          <h3>請輸入教師管理安全密碼</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">預設管理密碼：<code>teacher115</code></p>
+          <div style="display: flex; gap: 0.5rem; max-width: 320px; margin: 0 auto;">
+            <input type="password" id="adminPasswordInput" class="agent-input" placeholder="輸入管理密碼">
+            <button class="start-btn" style="padding: 0.6rem 1.2rem; font-size: 0.9rem;" onclick="appNav.verifyAdminPassword()">解鎖</button>
+          </div>
+          <div id="adminLockMsg" style="color: #f43f5e; font-size: 0.85rem; margin-top: 0.5rem; display: none;"></div>
+        </div>
+
+        <!-- 登入後管理分頁內容 -->
+        <div id="adminDashboardContent" style="display: none;">
+          <div class="admin-tabs-nav">
+            <button class="admin-tab-btn active" onclick="appNav.switchAdminTab('statsTab')"><i class="fa-solid fa-chart-column"></i> 每題通過率分析</button>
+            <button class="admin-tab-btn" onclick="appNav.switchAdminTab('gradesTab')"><i class="fa-solid fa-users"></i> 學生登入與成績明細</button>
+            <button class="admin-tab-btn" onclick="appNav.switchAdminTab('configTab')"><i class="fa-solid fa-cloud-arrow-up"></i> Cloudflare 串接設定</button>
+          </div>
+
+          <!-- 分頁 1：每題通過率分析看板 -->
+          <div id="statsTab" class="admin-tab-pane active">
+            <div class="tab-toolbar">
+              <span style="font-size: 0.9rem; color: #cbd5e1;">即時監控 80 題學生答題正確率，自動標註易錯迷思題目：</span>
+              <button class="refresh-btn" onclick="appNav.renderAdminStats()"><i class="fa-solid fa-arrows-rotate"></i> 重新計算</button>
+            </div>
+            <div class="pass-rate-table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>題號</th>
+                    <th>單元</th>
+                    <th>題目名稱</th>
+                    <th>作答次數</th>
+                    <th>答對次數</th>
+                    <th>通過率</th>
+                    <th>教學診斷</th>
+                  </tr>
+                </thead>
+                <tbody id="questionStatsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 分頁 2：學生登入日誌與成績冊 -->
+          <div id="gradesTab" class="admin-tab-pane">
+            <div class="tab-toolbar">
+              <div style="display: flex; align-items: center; gap: 0.8rem;">
+                <label style="font-size: 0.85rem; color: #94a3b8;">篩選班級：</label>
+                <select id="filterClassSelect" class="agent-input" style="padding: 0.35rem 0.8rem; width: auto;" onchange="appNav.renderAdminStudentList()">
+                  <option value="ALL">全部 11 個班級</option>
+                </select>
+              </div>
+              <button class="cert-download-btn" style="padding: 0.45rem 1rem; font-size: 0.85rem;" onclick="appNav.exportStudentScoresCSV()">
+                <i class="fa-solid fa-file-excel"></i> 匯出 Excel 成績冊 (CSV)
+              </button>
+            </div>
+            <div class="pass-rate-table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>班級</th>
+                    <th>座號</th>
+                    <th>學號</th>
+                    <th>姓名</th>
+                    <th>登入時間</th>
+                    <th>已測單元數</th>
+                    <th>平均得分</th>
+                    <th>狀態</th>
+                  </tr>
+                </thead>
+                <tbody id="studentScoresTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 分頁 3：Cloudflare 串接設定 -->
+          <div id="configTab" class="admin-tab-pane">
+            <div class="config-card">
+              <h4 style="color: #38bdf8; margin-bottom: 0.5rem;"><i class="fa-brands fa-cloudflare"></i> Cloudflare Worker API 端點綁定</h4>
+              <p style="color: #94a3b8; font-size: 0.85rem; line-height: 1.6; margin-bottom: 1rem;">
+                本系統預設以雙軌模式運作（本機自動持久化 + Cloudflare API 同步）。如果您已部署 Cloudflare Worker，請在下方填入 Worker 網址，系統將自動同步全體學生登入紀錄與成績至您的 Cloudflare 雲端伺服器！
+              </p>
+              <div class="form-group">
+                <label>Cloudflare Worker 網址：</label>
+                <input type="url" id="cfWorkerUrlInput" class="agent-input" placeholder="例如：https://cybercloud-backend.<你的子網域>.workers.dev">
+              </div>
+              <button class="start-btn" style="padding: 0.6rem 1.5rem; font-size: 0.9rem;" onclick="appNav.saveCloudflareConfig()">
+                <i class="fa-solid fa-floppy-disk"></i> 儲存設定並測試連線
+              </button>
+              <div id="cfTestResult" style="margin-top: 0.8rem; font-size: 0.85rem;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 頁尾 -->
   <footer class="footer">
-    <p>國中 108 課綱資訊科技輔助教學互動系統 ｜ 南一版 1上 Ch2-1 雲端運算服務與網路資料搜尋技巧</p>
-    <p style="margin-top: 0.3rem; opacity: 0.7;">本網頁為純前端架構，可直接放置於 GitHub Pages、Google Sites 或學校伺服器發布使用</p>
+    <p>國中 108 課綱資訊科技互動教學研發基地 ｜ 南一版 1上 Ch2-1 雲端運算 ＆ Ch2-2 資料與資訊應用專題</p>
+    <p style="margin-top: 0.3rem; opacity: 0.7;">
+      全套系統支援 Cloudflare Pages 前端託管 ＆ Cloudflare Workers 後台即時成績紀錄
+    </p>
   </footer>
 
-  <!-- 引用題庫與程式碼 -->
+  <!-- 引用題庫與核心邏輯 -->
   <script src="data.js"></script>
   <script src="app.js"></script>
 </body>
