@@ -1,7 +1,7 @@
-// CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.5.0)
-// 支援 115 級學生名條檢核、8大單元120題、Google Docs 5題簡答學習單、提示後看解答跳下一題、實體快捷鍵防呆
+// CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
+// 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "3.5.0";
+const APP_VERSION = "3.8.0";
 
 // 系統核心狀態
 const appState = {
@@ -24,11 +24,11 @@ const appState = {
   activeWorksheetUnitIdx: 0,
 
   // 後台成績與每題通過率快取 (LocalStorage 快取)
-  studentScores: {}, // key: studentId -> { name, class, seat, unitScores: { [unitId]: score } }
+  studentScores: {}, // key: studentId -> { name, class, seat, studentId, unitScores: { [unitId]: score }, lastUpdated }
   questionStats: {}, // key: qId -> { attempts: 0, correct: 0, passRate: '0%' }
-  loginLogs: [],     // [{ class, seat, studentId, name, loginTime }]
+  loginLogs: [],     // [{ class, seat, studentId, name, loginTime, timestamp }]
 
-  // Cloudflare Worker API 設定 (可自訂)
+  // 遠端資料庫 API 設定 (Cloudflare Worker 或 Google Web App)
   cfWorkerUrl: localStorage.getItem('CYBERCLOUD_CF_URL') || ''
 };
 
@@ -116,6 +116,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   initUnitLobby();
   initControls();
 
+  // 若有設定遠端資料庫，背景靜默同步一次
+  if (appState.cfWorkerUrl) {
+    silentPullCloudData();
+  }
+
   // 需求 1：預設學生個資是空白，一律停留在登入畫面，不自動跳轉
   showScreen('loginScreen');
 });
@@ -166,7 +171,7 @@ function initLoginScreen() {
   const idInput = document.getElementById('loginId');
   const errorMsg = document.getElementById('loginErrorMsg');
 
-  // 1. 強制重置欄位為空白
+  // 強制重置欄位為空白
   if (seatInput) seatInput.value = '';
   if (nameInput) nameInput.value = '';
   if (idInput) idInput.value = '';
@@ -185,12 +190,11 @@ function initLoginScreen() {
       opt.textContent = c;
       classSelect.appendChild(opt);
     });
-    classSelect.value = ''; // 預設空白未選
+    classSelect.value = '';
   }
 
   const loginBtn = document.getElementById('btnDoLogin');
   if (loginBtn) {
-    // 移除舊 listener 避免重複綁定
     loginBtn.onclick = handleStudentLogin;
   }
 
@@ -204,7 +208,6 @@ function initLoginScreen() {
     }
   });
 
-  // 教師後台按鈕
   const teacherBtn = document.getElementById('btnTeacherPortal');
   if (teacherBtn) {
     teacherBtn.onclick = openTeacherAuthModal;
@@ -261,7 +264,7 @@ function handleStudentLogin() {
   });
   persistRecords();
 
-  // 非同步回傳至 Cloudflare Worker
+  // 非同步即時記錄至後台資料庫
   syncToCloudflare('log_login', appState.currentStudent);
 
   // 轉移畫面至大廳
@@ -375,7 +378,6 @@ function renderCurrentQuestion() {
   const totalQ = unit.questions.length;
   const isChallenge = appState.activeQuestionIdx >= 10;
 
-  // 更新頂部資訊條
   document.getElementById('currentUnitName').textContent = unit.unitTitle;
   document.getElementById('questionProgressText').textContent = `第 ${appState.activeQuestionIdx + 1} / ${totalQ} 題 ${isChallenge ? '【進階時事挑戰題】' : '【基礎生活核心題】'}`;
   
@@ -386,7 +388,6 @@ function renderCurrentQuestion() {
   document.getElementById('xpDisplay').textContent = appState.xp;
   document.getElementById('comboDisplay').textContent = appState.combo;
 
-  // 題目主體
   const qContainer = document.getElementById('questionContainer');
   qContainer.innerHTML = `
     <div class="question-tag-row">
@@ -410,7 +411,6 @@ function renderCurrentQuestion() {
   renderInteractiveInput(q);
 }
 
-// 格式化題目內容 (替換 [BLANK] 標籤為美觀的填空位置，杜絕 HTML 屬性外漏)
 function formatPromptContent(q) {
   if (q.type === 'cloze') {
     return q.prompt.replace(/\[\s*BLANK\s*\]/g, '<span class="cloze-blank">【 ？ 填空位置 】</span>');
@@ -418,13 +418,11 @@ function formatPromptContent(q) {
   return escapeHtml(q.prompt);
 }
 
-// 渲染輸入互動元件
 function renderInteractiveInput(q) {
   const area = document.getElementById('answerArea');
   area.innerHTML = '';
 
   if (q.type === 'cloze' || !q.options || q.options.length === 0) {
-    // 填空輸入框
     const wrapper = document.createElement('div');
     wrapper.className = 'cloze-input-wrapper';
     wrapper.innerHTML = `
@@ -445,11 +443,10 @@ function renderInteractiveInput(q) {
 
     submitBtn.addEventListener('click', () => checkClozeAnswer(q, input.value));
     
-    // 實體鍵盤快捷鍵防呆監聽 (特別針對 Ctrl+Shift+T 或其他組合鍵)
+    // 實體快捷鍵防呆
     input.addEventListener('keydown', (e) => {
-      // 若按下 Ctrl+Shift+T 實體鍵組合
       if (e.ctrlKey && e.shiftKey && (e.key === 't' || e.key === 'T' || e.code === 'KeyT')) {
-        e.preventDefault(); // 避免觸發瀏覽器開關分頁衝突
+        e.preventDefault();
         input.value = 'Ctrl+Shift+T';
         checkClozeAnswer(q, 'Ctrl+Shift+T');
         return;
@@ -462,12 +459,10 @@ function renderInteractiveInput(q) {
 
     hintBtn.addEventListener('click', () => {
       showQuestionHint(q.hint);
-      // 提示出現後，同時顯示「查看解答跳下一題」按鈕，徹底不卡關
       document.getElementById('btnGiveUp').classList.remove('hidden');
     });
 
   } else {
-    // 選擇題選項
     const optionsGrid = document.createElement('div');
     optionsGrid.className = 'options-grid';
 
@@ -496,7 +491,6 @@ function renderInteractiveInput(q) {
   }
 }
 
-// 顯示提示
 function showQuestionHint(hintText) {
   const hintArea = document.getElementById('hintArea');
   if (!hintArea) return;
@@ -505,7 +499,6 @@ function showQuestionHint(hintText) {
   hintArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// 檢查填空題答案
 function checkClozeAnswer(q, userInput) {
   if (appState.isAnswered) return;
   const rawInput = (userInput || '').trim();
@@ -517,7 +510,6 @@ function checkClozeAnswer(q, userInput) {
   const cleanInput = rawInput.toLowerCase().replace(/\s+/g, '');
   let isCorrect = false;
 
-  // 只要符合 accepted 列表中任一即算對
   if (q.accepted && Array.isArray(q.accepted)) {
     isCorrect = q.accepted.some(acc => {
       const cleanAcc = acc.toLowerCase().replace(/\s+/g, '');
@@ -525,7 +517,6 @@ function checkClozeAnswer(q, userInput) {
     });
   }
 
-  // 容錯判斷：例如第一題要求按 T，如果輸入 Ctrl+Shift+T 也算對
   if (!isCorrect && q.qId === 'U11-01') {
     if (cleanInput === 't' || cleanInput === 'ctrl+shift+t' || cleanInput === 'ctrl-shift-t') {
       isCorrect = true;
@@ -535,20 +526,17 @@ function checkClozeAnswer(q, userInput) {
   handleAnswerResult(isCorrect, q, rawInput);
 }
 
-// 檢查選擇題答案
 function checkOptionAnswer(q, selectedOpt, btnEl) {
   if (appState.isAnswered) return;
   const isCorrect = selectedOpt === q.answer;
   handleAnswerResult(isCorrect, q, selectedOpt, btnEl);
 }
 
-// 處理答題結果回饋
 function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
   appState.isAnswered = true;
   const isChallenge = appState.activeQuestionIdx >= 10;
   const points = isChallenge ? 5 : 10;
 
-  // 更新統計 (每題通過率)
   recordQuestionAttempt(q.qId, isCorrect);
 
   const feedbackArea = document.getElementById('feedbackArea');
@@ -602,16 +590,13 @@ function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
     appState.currentUnitResults.push({ qId: q.qId, correct: false, score: 0 });
   }
 
-  // 更新介面狀態值
   document.getElementById('hpDisplay').textContent = appState.hp;
   document.getElementById('xpDisplay').textContent = appState.xp;
   document.getElementById('comboDisplay').textContent = appState.combo;
 
-  // 滾動到回饋區
   feedbackArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// 學生「我還是想不出來」直接查看正確解答並前進下一題
 window.giveUpCurrentQuestion = function() {
   if (appState.isAnswered) return;
   appState.isAnswered = true;
@@ -619,7 +604,6 @@ window.giveUpCurrentQuestion = function() {
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
   const q = unit.questions[appState.activeQuestionIdx];
 
-  // 記為未通過
   recordQuestionAttempt(q.qId, false);
   appState.combo = 0;
   appState.currentUnitResults.push({ qId: q.qId, correct: false, score: 0 });
@@ -644,7 +628,6 @@ window.giveUpCurrentQuestion = function() {
   feedbackArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
 
-// 前進下一題或結算
 window.proceedToNextQuestion = function() {
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
   if (appState.activeQuestionIdx + 1 < unit.questions.length) {
@@ -655,12 +638,11 @@ window.proceedToNextQuestion = function() {
   }
 };
 
-// 結算單元成績
+// 結算單元成績並自動寫入資料庫
 function concludeUnitQuest() {
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
-  const totalQuestions = unit.questions.length; // 15
+  const totalQuestions = unit.questions.length;
   
-  // 10 題為一單元，每題 10 分，滿分 100 分；後 5 題為挑戰加分（每題 5 分）
   let baseScore = 0;
   let challengeScore = 0;
   let correctCount = 0;
@@ -679,7 +661,6 @@ function concludeUnitQuest() {
   const finalTotalScore = baseScore + challengeScore;
   const timeSpentSec = Math.round((Date.now() - appState.unitStartTime) / 1000);
 
-  // 儲存至全域學生成績
   if (appState.currentStudent) {
     const s = appState.currentStudent;
     if (!appState.studentScores[s.studentId]) {
@@ -688,17 +669,18 @@ function concludeUnitQuest() {
         class: s.class,
         seat: s.seat,
         studentId: s.studentId,
-        unitScores: {}
+        unitScores: {},
+        lastUpdated: Date.now()
       };
     }
-    // 取最高分
     const prevScore = appState.studentScores[s.studentId].unitScores[unit.unitId] || 0;
-    if (finalTotalScore > prevScore) {
+    if (finalTotalScore >= prevScore) {
       appState.studentScores[s.studentId].unitScores[unit.unitId] = finalTotalScore;
+      appState.studentScores[s.studentId].lastUpdated = Date.now();
     }
     persistRecords();
 
-    // 回傳至 Cloudflare Worker
+    // 即時推播更新至後台資料庫
     syncToCloudflare('submit_score', {
       student: s,
       unitId: unit.unitId,
@@ -713,7 +695,6 @@ function concludeUnitQuest() {
     });
   }
 
-  // 顯示結算畫面
   showScreen('resultScreen');
   renderResultScreen({
     unitTitle: unit.unitTitle,
@@ -727,7 +708,6 @@ function concludeUnitQuest() {
   });
 }
 
-// 渲染結算畫面
 function renderResultScreen(res) {
   const container = document.getElementById('resultDetailsContainer');
   if (!container) return;
@@ -776,7 +756,6 @@ function renderResultScreen(res) {
   `;
 }
 
-// 記錄每題通過率
 function recordQuestionAttempt(qId, isCorrect) {
   if (!appState.questionStats[qId]) {
     appState.questionStats[qId] = { attempts: 0, correct: 0, passRate: '0%' };
@@ -788,7 +767,9 @@ function recordQuestionAttempt(qId, isCorrect) {
   persistRecords();
 }
 
-// 與 Cloudflare Worker 同步資料
+// =========================================================================
+// 遠端雲端資料庫 API 通訊模組 (記錄、更新、拉取)
+// =========================================================================
 async function syncToCloudflare(action, payload) {
   const url = appState.cfWorkerUrl;
   if (!url) return;
@@ -799,11 +780,144 @@ async function syncToCloudflare(action, payload) {
       body: JSON.stringify({ action: action, data: payload, timestamp: Date.now() })
     });
   } catch (err) {
-    console.warn('同步至 Cloudflare Worker 異常 (仍已安全保存在本地端):', err);
+    console.warn('同步至雲端資料庫異常 (資料仍已完整保存在本機快取):', err);
   }
 }
 
-// 教師後台驗證與開啟
+// 靜默拉取雲端資料
+async function silentPullCloudData() {
+  const url = appState.cfWorkerUrl;
+  if (!url) return;
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get_all_data' })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.studentScores) {
+        mergeStudentScores(data.studentScores);
+      }
+    }
+  } catch(e) {}
+}
+
+// 合併雲端學生成績
+function mergeStudentScores(cloudScores) {
+  Object.keys(cloudScores).forEach(sId => {
+    const cStudent = cloudScores[sId];
+    if (!appState.studentScores[sId]) {
+      appState.studentScores[sId] = cStudent;
+    } else {
+      // 合併各單元成績 (取較高分)
+      const localUnitScores = appState.studentScores[sId].unitScores || {};
+      const cloudUnitScores = cStudent.unitScores || {};
+      const allUnits = new Set([...Object.keys(localUnitScores), ...Object.keys(cloudUnitScores)]);
+      allUnits.forEach(uId => {
+        localUnitScores[uId] = Math.max(localUnitScores[uId] || 0, cloudUnitScores[uId] || 0);
+      });
+      appState.studentScores[sId].unitScores = localUnitScores;
+    }
+  });
+  persistRecords();
+}
+
+// 教師手動點擊「立即從雲端資料庫同步」
+window.pullFromCloudDatabase = async function() {
+  const url = appState.cfWorkerUrl;
+  if (!url) {
+    alert('尚未設定雲端資料庫網址！請先在下方「遠端雲端資料庫串接設定」中填入 Worker 或 Google Apps Script 網址。');
+    return;
+  }
+
+  try {
+    const btn = event.target;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 同步中...';
+    btn.disabled = true;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get_all_data' })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.studentScores) {
+        mergeStudentScores(data.studentScores);
+      }
+      if (data.questionStats) {
+        Object.assign(appState.questionStats, data.questionStats);
+      }
+      if (data.loginLogs && Array.isArray(data.loginLogs)) {
+        appState.loginLogs = data.loginLogs;
+      }
+      persistRecords();
+      renderTeacherDashboard();
+      updateCloudStatusBadge(true);
+      alert('🎉 雲端資料庫同步完成！已成功抓取並合併最新全校學生成績與作答紀錄！');
+    } else {
+      throw new Error('伺服器回應狀態碼：' + res.status);
+    }
+  } catch (err) {
+    updateCloudStatusBadge(false);
+    alert('❌ 連線至雲端資料庫失敗：' + err.message + '\n請確認網址是否正確並已開放 CORS 跨域存取。');
+  } finally {
+    renderTeacherDashboard();
+  }
+};
+
+// 測試雲端資料庫連線
+window.testCloudConnection = async function() {
+  const url = document.getElementById('cfWorkerInput').value.trim();
+  if (!url) {
+    alert('請先輸入資料庫網址！');
+    return;
+  }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'get_all_data' })
+    });
+    if (res.ok) {
+      updateCloudStatusBadge(true);
+      alert('✅ 恭喜！雲端資料庫連線成功！可以正常進行記錄、更新與查詢！');
+    } else {
+      updateCloudStatusBadge(false);
+      alert('⚠️ 伺服器已回應但狀態異常：' + res.status);
+    }
+  } catch (err) {
+    updateCloudStatusBadge(false);
+    alert('❌ 無法連線至該網址：' + err.message);
+  }
+};
+
+function updateCloudStatusBadge(isOnline) {
+  const badge = document.getElementById('cloudStatusBadge');
+  if (!badge) return;
+  if (isOnline) {
+    badge.className = 'cloud-status-badge online';
+    badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> 已連線';
+  } else {
+    badge.className = 'cloud-status-badge offline';
+    badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 未連線 / 異常';
+  }
+}
+
+// 儲存遠端資料庫網址設定
+window.saveCfWorkerConfig = function() {
+  const val = document.getElementById('cfWorkerInput').value.trim();
+  appState.cfWorkerUrl = val;
+  localStorage.setItem('CYBERCLOUD_CF_URL', val);
+  alert('雲端資料庫網址設定已儲存！');
+  testCloudConnection();
+};
+
+// =========================================================================
+// 教師後台管理 (查詢、篩選、手動更新、匯出匯入)
+// =========================================================================
 function openTeacherAuthModal() {
   const pwd = prompt('請輸入教師管理後台密碼：');
   if (pwd === 'teacher115' || pwd === 'admin') {
@@ -814,7 +928,6 @@ function openTeacherAuthModal() {
   }
 }
 
-// 渲染教師後台儀表板
 function renderTeacherDashboard() {
   const totalStudents = appState.roster.length || 318;
   const testedStudentIds = Object.keys(appState.studentScores);
@@ -823,7 +936,7 @@ function renderTeacherDashboard() {
   document.getElementById('statTotalTested').textContent = `${testedCount} / ${totalStudents} 人`;
   document.getElementById('statTotalLogins').textContent = `${appState.loginLogs.length} 人次`;
 
-  renderClassScoreTable();
+  filterAdminTable();
   renderQuestionPassRateTable();
   renderRecentLoginLogs();
 
@@ -831,43 +944,150 @@ function renderTeacherDashboard() {
   if (workerInput) {
     workerInput.value = appState.cfWorkerUrl;
   }
+  if (appState.cfWorkerUrl) {
+    updateCloudStatusBadge(true);
+  }
 }
 
-// 渲染班級成績表
-function renderClassScoreTable() {
+// 依班級下拉與搜尋框即時過濾學生成績表 (QUERY)
+window.filterAdminTable = function() {
+  const classFilter = document.getElementById('adminClassFilter') ? document.getElementById('adminClassFilter').value : 'ALL';
+  const keyword = document.getElementById('adminSearchInput') ? document.getElementById('adminSearchInput').value.trim().toLowerCase() : '';
   const tbody = document.getElementById('classScoreTableBody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  const students = Object.values(appState.studentScores);
+  let students = Object.values(appState.studentScores);
+
+  // 1. 班級篩選
+  if (classFilter !== 'ALL') {
+    students = students.filter(s => s.class === classFilter);
+  }
+
+  // 2. 關鍵字搜尋 (姓名、學號、座號)
+  if (keyword) {
+    students = students.filter(s => 
+      s.name.toLowerCase().includes(keyword) ||
+      s.studentId.toLowerCase().includes(keyword) ||
+      String(s.seat) === keyword ||
+      s.class.includes(keyword)
+    );
+  }
+
+  // 排序：先依班級、再依座號
+  students.sort((a, b) => {
+    if (a.class !== b.class) return a.class.localeCompare(b.class, 'zh-TW');
+    return a.seat - b.seat;
+  });
+
   if (students.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">目前尚無測驗紀錄</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">無符合搜尋條件之學生紀錄</td></tr>';
     return;
   }
 
   students.forEach(st => {
     const tr = document.createElement('tr');
     const uScores = st.unitScores || {};
+    const avg = calculateAverage(uScores);
     
     tr.innerHTML = `
       <td>${escapeHtml(st.class)}</td>
-      <td>${st.seat}</td>
-      <td>${escapeHtml(st.name)}</td>
-      <td>${escapeHtml(st.studentId)}</td>
-      <td>${uScores['unit-1-1'] !== undefined ? uScores['unit-1-1'] + '分' : '--'}</td>
-      <td>${uScores['unit-2-1'] !== undefined ? uScores['unit-2-1'] + '分' : '--'}</td>
-      <td><span class="badge-score">${calculateAverage(uScores)} 分</span></td>
+      <td><strong>${st.seat}</strong></td>
+      <td><strong>${escapeHtml(st.name)}</strong></td>
+      <td><code>${escapeHtml(st.studentId)}</code></td>
+      <td>${formatScore(uScores['unit-1-1'])}</td>
+      <td>${formatScore(uScores['unit-1-2'])}</td>
+      <td>${formatScore(uScores['unit-1-3'])}</td>
+      <td>${formatScore(uScores['unit-2-1'])}</td>
+      <td><span class="badge-score">${avg} 分</span></td>
+      <td>
+        <button class="edit-btn-sm" onclick="openEditScoreModal('${escapeHtml(st.studentId)}')">
+          <i class="fa-solid fa-pen-to-square"></i> 修改成績
+        </button>
+      </td>
     `;
     tbody.appendChild(tr);
   });
+};
+
+function formatScore(score) {
+  if (score === undefined || score === null) return '<span class="text-muted">--</span>';
+  if (score >= 100) return `<span class="score-high"><strong>${score}分</strong></span>`;
+  if (score >= 60) return `<span class="score-pass">${score}分</span>`;
+  return `<span class="score-low">${score}分</span>`;
 }
 
 function calculateAverage(unitScores) {
-  const vals = Object.values(unitScores);
+  const vals = Object.values(unitScores).filter(v => v !== undefined && v !== null);
   if (vals.length === 0) return 0;
   const sum = vals.reduce((a, b) => a + b, 0);
   return Math.round(sum / vals.length);
 }
+
+// -------------------------------------------------------------------------
+// 教師手動修改更新學生成績 (UPDATE)
+// -------------------------------------------------------------------------
+window.openEditScoreModal = function(studentId) {
+  const student = appState.studentScores[studentId];
+  if (!student) {
+    alert('查無該學生紀錄！');
+    return;
+  }
+
+  document.getElementById('editModalStudentId').value = studentId;
+  document.getElementById('editModalStudentTitle').textContent = `修改成績：${student.class} ${student.seat}號 ${student.name} (${student.studentId})`;
+
+  const grid = document.getElementById('editModalScoresGrid');
+  grid.innerHTML = '';
+
+  const units = QUEST_DATA.units;
+  units.forEach(u => {
+    const curVal = student.unitScores && student.unitScores[u.unitId] !== undefined ? student.unitScores[u.unitId] : '';
+    const item = document.createElement('div');
+    item.className = 'edit-unit-field';
+    item.innerHTML = `
+      <label>${escapeHtml(u.unitTitle)}</label>
+      <input type="number" id="edit_score_${u.unitId}" min="0" max="125" class="form-control" value="${curVal}" placeholder="未作答">
+    `;
+    grid.appendChild(item);
+  });
+
+  document.getElementById('editScoreModal').classList.remove('hidden');
+};
+
+window.closeEditScoreModal = function() {
+  document.getElementById('editScoreModal').classList.add('hidden');
+};
+
+// 儲存修改之成績並同步至雲端資料庫
+window.saveEditedScores = async function() {
+  const studentId = document.getElementById('editModalStudentId').value;
+  const student = appState.studentScores[studentId];
+  if (!student) return;
+
+  const units = QUEST_DATA.units;
+  units.forEach(u => {
+    const input = document.getElementById(`edit_score_${u.unitId}`);
+    if (input && input.value !== '') {
+      const val = Number(input.value);
+      student.unitScores[u.unitId] = Math.max(0, Math.min(125, val));
+    }
+  });
+
+  student.lastUpdated = Date.now();
+  persistRecords();
+
+  // 同步更新至遠端資料庫
+  syncToCloudflare('update_score', {
+    studentId: studentId,
+    student: student,
+    unitScores: student.unitScores
+  });
+
+  closeEditScoreModal();
+  filterAdminTable();
+  alert(`✅ 學生【${student.name}】的成績已成功更新，並同步寫入資料庫！`);
+};
 
 // 渲染每題通過率表格
 function renderQuestionPassRateTable() {
@@ -903,7 +1123,6 @@ function renderQuestionPassRateTable() {
   });
 }
 
-// 渲染最新登入日誌
 function renderRecentLoginLogs() {
   const tbody = document.getElementById('loginLogsTableBody');
   if (!tbody) return;
@@ -928,15 +1147,57 @@ function renderRecentLoginLogs() {
   });
 }
 
-// 儲存 Cloudflare Worker 設定
-window.saveCfWorkerConfig = function() {
-  const val = document.getElementById('cfWorkerInput').value.trim();
-  appState.cfWorkerUrl = val;
-  localStorage.setItem('CYBERCLOUD_CF_URL', val);
-  alert('Cloudflare Worker 網址已儲存！');
+// 匯出完整 JSON 資料庫
+window.exportDatabaseJSON = function() {
+  const dbDump = {
+    version: APP_VERSION,
+    exportTime: new Date().toISOString(),
+    studentScores: appState.studentScores,
+    questionStats: appState.questionStats,
+    loginLogs: appState.loginLogs
+  };
+
+  const blob = new Blob([JSON.stringify(dbDump, null, 2)], { type: 'application/json;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `CyberCloud_學生資料庫完整備份_${Date.now()}.json`;
+  a.click();
 };
 
-// 匯出全部成績為 CSV
+window.triggerImportJSON = function() {
+  document.getElementById('importJsonFileInput').click();
+};
+
+// 匯入與合併 JSON 資料庫
+window.handleImportJSON = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (imported.studentScores) {
+        mergeStudentScores(imported.studentScores);
+      }
+      if (imported.questionStats) {
+        Object.assign(appState.questionStats, imported.questionStats);
+      }
+      if (imported.loginLogs && Array.isArray(imported.loginLogs)) {
+        appState.loginLogs = [...imported.loginLogs, ...appState.loginLogs].slice(0, 500);
+      }
+      persistRecords();
+      renderTeacherDashboard();
+      alert('🎉 成功匯入並合併學生成績資料庫！');
+    } catch (err) {
+      alert('❌ 檔案格式錯誤，無法解析 JSON 資料庫：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+};
+
+// 匯出 CSV 報表
 window.exportScoresCSV = function() {
   const students = Object.values(appState.studentScores);
   if (students.length === 0) {
@@ -944,7 +1205,7 @@ window.exportScoresCSV = function() {
     return;
   }
 
-  let csvContent = '\uFEFF班級,座號,姓名,學號,單元1,單元2,單元3,單元4,單元5,單元6,單元7,單元8,平均成績\n';
+  let csvContent = '\uFEFF班級,座號,姓名,學號,單元1-1,單元1-2,單元1-3,單元2-1,單元2-2,單元2-3,單元2-4,單元2-5,平均成績\n';
   students.forEach(s => {
     const u = s.unitScores || {};
     const avg = calculateAverage(u);
@@ -987,7 +1248,6 @@ function renderWorksheetModalContent() {
 
   document.getElementById('modalWorksheetTitle').textContent = ws.unitTitle;
 
-  // 渲染單元切換按鈕
   const tabsContainer = document.getElementById('modalUnitTabs');
   if (tabsContainer) {
     tabsContainer.innerHTML = '';
@@ -1003,7 +1263,6 @@ function renderWorksheetModalContent() {
     });
   }
 
-  // 渲染 5 道簡答題內容
   const contentArea = document.getElementById('modalWorksheetContent');
   if (!contentArea) return;
 
@@ -1034,7 +1293,6 @@ function renderWorksheetModalContent() {
   });
 }
 
-// 一鍵複製當前單元學習單成 Google Docs 純文字格式
 window.copyCurrentWorksheet = function() {
   const ws = WORKSHEET_DATA[appState.activeWorksheetUnitIdx];
   if (!ws) return;
@@ -1055,7 +1313,6 @@ window.copyCurrentWorksheet = function() {
   navigator.clipboard.writeText(text).then(() => {
     alert(`✅ 已成功將《${ws.unitTitle}》5 題 Google Docs 簡答學習單複製至剪貼簿！\n您可以直接前往 Google 文件 (Google Docs) 按下 Ctrl+V 貼上派發給學生！`);
   }).catch(() => {
-    // 備用方案
     const ta = document.createElement('textarea');
     ta.value = text;
     document.body.appendChild(ta);
@@ -1066,7 +1323,6 @@ window.copyCurrentWorksheet = function() {
   });
 };
 
-// 控制項初始化
 function initControls() {
   const soundBtn = document.getElementById('soundToggleBtn');
   if (soundBtn) {
@@ -1091,7 +1347,6 @@ function initControls() {
     logoutBtn.addEventListener('click', () => {
       sessionStorage.removeItem('CURRENT_STUDENT');
       appState.currentStudent = null;
-      // 登出時清空輸入框
       document.getElementById('loginSeat').value = '';
       document.getElementById('loginName').value = '';
       document.getElementById('loginId').value = '';
@@ -1101,7 +1356,6 @@ function initControls() {
   }
 }
 
-// XSS 安全輔助
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)

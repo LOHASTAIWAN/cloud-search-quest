@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <!-- FontAwesome 6 圖示庫 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="stylesheet" href="style.css?v=3.5.0">
+  <link rel="stylesheet" href="style.css?v=3.8.0">
 </head>
 <body>
 
@@ -65,7 +65,7 @@
           <span class="pulsing-dot"></span> 115 級國中資訊科技素養檢定系統
         </div>
         <h2 class="login-title">特工身分登入檢核</h2>
-        <p class="login-subtitle">請如實填寫學校正式名條資料，系統將即時核對身分並記錄測驗歷程與成績。</p>
+        <p class="login-subtitle">請如實填寫學校正式名條資料，系統將即時核對身分並記錄測驗歷程與成績至資料庫。</p>
 
         <div class="login-form">
           <div class="form-group">
@@ -156,25 +156,35 @@
       </div>
     </section>
 
-    <!-- 畫面 5：教師管理後台 -->
+    <!-- 畫面 5：教師後台管理與雲端資料庫中心 -->
     <section id="adminScreen" class="screen-view hidden">
       <div class="admin-panel-container">
+        
+        <!-- 頂部功能快捷按鈕 -->
         <div class="admin-top-actions">
           <button class="secondary-btn" onclick="showScreen('unitSelectScreen')">
             <i class="fa-solid fa-arrow-left"></i> 返回任務大廳
           </button>
-          <div>
-            <button class="secondary-btn mr-2" onclick="openWorksheetModal(0)">
-              <i class="fa-solid fa-file-word"></i> 檢視 Google Docs 學習單
+          
+          <div class="admin-btn-cluster">
+            <button class="primary-btn pulse-on-hover" onclick="pullFromCloudDatabase()">
+              <i class="fa-solid fa-rotate"></i> 雲端同步最新數據
             </button>
+            <button class="secondary-btn" onclick="exportDatabaseJSON()">
+              <i class="fa-solid fa-download"></i> 備份資料庫(JSON)
+            </button>
+            <button class="secondary-btn" onclick="triggerImportJSON()">
+              <i class="fa-solid fa-upload"></i> 匯入合併(JSON)
+            </button>
+            <input type="file" id="importJsonFileInput" accept=".json" style="display: none;" onchange="handleImportJSON(event)">
             <button class="primary-btn" onclick="exportScoresCSV()">
-              <i class="fa-solid fa-file-csv"></i> 匯出全校學生名冊成績 (CSV)
+              <i class="fa-solid fa-file-csv"></i> 匯出報表(CSV)
             </button>
           </div>
         </div>
 
-        <h2 class="admin-title"><i class="fa-solid fa-chart-line"></i> 教師數據監控中心</h2>
-        <p class="admin-subtitle">即時監控全體學生登入歷程、單元測驗成績分布與 120 道題目答對率診斷。</p>
+        <h2 class="admin-title"><i class="fa-solid fa-database text-cyan"></i> 教師數據與成績管理後台</h2>
+        <p class="admin-subtitle">支援學生身分查詢、各單元成績即時修改更新、120 道題目通過率統計與跨裝置雲端資料庫同步。</p>
 
         <!-- 數據卡片 -->
         <div class="admin-stats-summary">
@@ -192,19 +202,56 @@
           </div>
         </div>
 
-        <!-- Cloudflare Worker 串接設定 -->
+        <!-- 雲端後台資料庫設定區塊 -->
         <div class="cf-config-box">
-          <label for="cfWorkerInput"><strong><i class="fa-brands fa-cloudflare text-warning"></i> Cloudflare Worker 後端 API 網址：</strong></label>
-          <div class="cf-input-row">
-            <input type="text" id="cfWorkerInput" placeholder="https://cloud-search-backend.YOUR-NAME.workers.dev" class="form-control">
-            <button class="primary-btn" onclick="saveCfWorkerConfig()">儲存設定</button>
+          <div class="config-header">
+            <h4><i class="fa-solid fa-network-wired text-warning"></i> 遠端雲端資料庫串接設定（Cloudflare Worker 或 Google 試算表 Web App）</h4>
+            <span id="cloudStatusBadge" class="cloud-status-badge offline">未連線</span>
           </div>
-          <small class="text-muted">若設定 Worker 網址，每次學生登入與完成測驗成績均會自動同步推播至 Cloudflare 後端存儲。</small>
+          <div class="cf-input-row">
+            <input type="text" id="cfWorkerInput" placeholder="請輸入 Cloudflare Worker 網址 或 Google Web App 網址" class="form-control">
+            <button class="primary-btn" onclick="saveCfWorkerConfig()">儲存設定</button>
+            <button class="secondary-btn" onclick="testCloudConnection()">連線測試</button>
+          </div>
+          <div class="config-help-row">
+            <small class="text-muted">
+              📌 <strong>支援雙引擎</strong>：可填寫 Cloudflare Worker 網址（如 <code>https://cybercloud.xxx.workers.dev</code>）或 Google 試算表 Apps Script 網址。學生在任何電腦作答，成績將即時寫入雲端；點擊「雲端同步」即可一秒匯聚全校成績！
+            </small>
+          </div>
         </div>
 
-        <!-- 學生個人成績名冊表格 -->
+        <!-- 學生成績查詢、篩選與更新管理區 -->
         <div class="admin-section-box">
-          <h3 class="section-title"><i class="fa-solid fa-users"></i> 學生單元測驗成績總覽</h3>
+          <div class="section-header-flex">
+            <div>
+              <h3 class="section-title"><i class="fa-solid fa-user-pen"></i> 學生成績查詢、管理與更新</h3>
+              <p class="section-desc">可依班級篩選或輸入姓名/學號即時查詢，並可直接點擊「修改成績」更新分數。</p>
+            </div>
+            
+            <!-- 查詢與篩選工具列 -->
+            <div class="search-filter-toolbar">
+              <select id="adminClassFilter" class="toolbar-select" onchange="filterAdminTable()">
+                <option value="ALL">全校全部班級</option>
+                <option value="七年一班">七年一班</option>
+                <option value="七年二班">七年二班</option>
+                <option value="七年三班">七年三班</option>
+                <option value="七年四班">七年四班</option>
+                <option value="七年五班">七年五班</option>
+                <option value="七年六班">七年六班</option>
+                <option value="七年七班">七年七班</option>
+                <option value="七年八班">七年八班</option>
+                <option value="七年九班">七年九班</option>
+                <option value="七年十班">七年十班</option>
+                <option value="七年十一班">七年十一班</option>
+              </select>
+              
+              <div class="search-input-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="adminSearchInput" placeholder="搜尋姓名、座號或學號..." oninput="filterAdminTable()">
+              </div>
+            </div>
+          </div>
+
           <div class="table-responsive">
             <table class="styled-table">
               <thead>
@@ -214,12 +261,15 @@
                   <th>姓名</th>
                   <th>學號</th>
                   <th>單元 1-1</th>
+                  <th>單元 1-2</th>
+                  <th>單元 1-3</th>
                   <th>單元 2-1</th>
                   <th>平均成績</th>
+                  <th>成績操作</th>
                 </tr>
               </thead>
               <tbody id="classScoreTableBody">
-                <tr><td colspan="7" class="text-center text-muted">暫無學生測驗紀錄</td></tr>
+                <tr><td colspan="10" class="text-center text-muted">暫無學生測驗紀錄</td></tr>
               </tbody>
             </table>
           </div>
@@ -305,9 +355,32 @@
     </div>
   </div>
 
+  <!-- 教師手動修改學生成績 Modal -->
+  <div id="editScoreModal" class="modal-overlay hidden">
+    <div class="modal-card modal-card-sm">
+      <div class="modal-header">
+        <div>
+          <span class="modal-tag">成績管理與更新</span>
+          <h3 id="editModalStudentTitle" class="modal-title">修改學生成績</h3>
+        </div>
+        <button class="modal-close-btn" onclick="closeEditScoreModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editModalStudentId">
+        <div class="edit-scores-grid" id="editModalScoresGrid">
+          <!-- 由 app.js 動態渲染 8 個單元的分數編輯輸入框 -->
+        </div>
+        <div class="modal-footer-actions">
+          <button class="secondary-btn" onclick="closeEditScoreModal()">取消</button>
+          <button class="primary-btn" onclick="saveEditedScores()"><i class="fa-solid fa-floppy-disk"></i> 儲存並同步至資料庫</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 載入核心題庫、學習單題庫與遊戲引擎 (純 UTF-8) -->
-  <script src="data.js?v=3.5.0"></script>
-  <script src="worksheets_data.js?v=3.5.0"></script>
-  <script src="app.js?v=3.5.0"></script>
+  <script src="data.js?v=3.8.0"></script>
+  <script src="worksheets_data.js?v=3.8.0"></script>
+  <script src="app.js?v=3.8.0"></script>
 </body>
 </html>

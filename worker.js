@@ -1,33 +1,64 @@
 /**
- * CyberCloud 雲端神搜特工隊 - Cloudflare Worker 後端服務
- * 功能：
- * 1. 學生班級座號姓名學號身份檢核與登入時間記錄
- * 2. 各單元成績儲存、完成時間統計
- * 3. 80道題目每題作答次數與通過率即時計算
- * 4. 教師後台儀表板 API 與 CSV 成績冊匯出
+ * CyberCloud 雲端神偷特工隊 - Cloudflare Worker 雲端後台資料庫 API (v2.0)
+ * 支援功能：
+ * 1. 學生登入身分核對、登入時間戳記與連線日誌保存
+ * 2. 8大單元成績儲存、查詢、修改更新 (CRUD)
+ * 3. 120道題目每題通過率累計分析
+ * 4. 支援 Cloudflare KV 持久化儲存 (SCORES_KV)
+ * 5. 跨網域 CORS 完全開放，支援前端 GitHub Pages 即時通訊
  */
 
-// 記憶體快取或與 KV / D1 綁定
-// 若綁定了 KV NAMESPACE: SCORES_KV，則優先存入 KV，否則回退至邊緣全域狀態
-const globalData = {
-  loginLogs: [],      // [{ studentId, name, class, seat, loginTime, ip }]
-  scores: {},         // key: `${studentId}_${unitId}` -> { studentId, name, class, seat, unitId, score, timeSpent, submittedAt }
-  questionStats: {}   // key: qId -> { qId, unitId, attempts: 0, correct: 0, passRate: "0%" }
+// 記憶體備用資料庫 (若未綁定 KV 時自動使用記憶體快取)
+const memoryDb = {
+  loginLogs: [],      // [{ class, seat, studentId, name, loginTime, timestamp, ip }]
+  studentScores: {},  // key: studentId -> { name, class, seat, studentId, unitScores: { [unitId]: score }, lastUpdated }
+  questionStats: {}   // key: qId -> { attempts: 0, correct: 0, passRate: "0%" }
 };
 
-// 處理 CORS 標頭
+// 輔助：CORS 標頭
 function corsHeaders() {
   return {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
     "Content-Type": "application/json; charset=utf-8"
   };
 }
 
+// 輔助：從 KV 或記憶體讀取資料
+async function getDb(env) {
+  if (env && env.SCORES_KV) {
+    try {
+      const dataStr = await env.SCORES_KV.get("CYBERCLOUD_MAIN_DB");
+      if (dataStr) {
+        return JSON.parse(dataStr);
+      }
+    } catch (e) {
+      console.warn("讀取 KV 異常，使用記憶體快取:", e);
+    }
+  }
+  return memoryDb;
+}
+
+// 輔助：儲存資料回 KV 或記憶體
+async function saveDb(env, data) {
+  if (env && env.SCORES_KV) {
+    try {
+      await env.SCORES_KV.put("CYBERCLOUD_MAIN_DB", JSON.stringify(data));
+      return;
+    } catch (e) {
+      console.warn("寫入 KV 異常:", e);
+    }
+  }
+  // 更新記憶體快取
+  memoryDb.loginLogs = data.loginLogs || [];
+  memoryDb.studentScores = data.studentScores || {};
+  memoryDb.questionStats = data.questionStats || {};
+}
+
 export default {
   async fetch(request, env, ctx) {
-    // 預檢請求
+    // 預檢請求 OPTIONS
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders() });
     }
@@ -36,144 +67,173 @@ export default {
     const path = url.pathname;
 
     try {
-      // 1. 學生登入檢核與登入時間記錄 API
-      if (path === "/api/auth/login" && request.method === "POST") {
-        const body = await request.json();
-        const { className, seat, name, studentId } = body;
+      const db = await getDb(env);
 
-        if (!className || !seat || !name || !studentId) {
-          return new Response(JSON.stringify({ success: false, message: "班級、座號、姓名與學號皆為必填！" }), {
-            status: 400,
-            headers: corsHeaders()
-          });
-        }
-
-        const loginRecord = {
-          studentId: String(studentId).trim(),
-          name: String(name).trim(),
-          class: String(className).trim(),
-          seat: Number(seat),
-          loginTime: new Date().toISOString(),
-          ip: request.headers.get("cf-connecting-ip") || "unknown"
-        };
-
-        // 寫入登入日誌
-        globalData.loginLogs.push(loginRecord);
-
-        // 如果綁定了 KV，持久化儲存
-        if (env.SCORES_KV) {
-          await env.SCORES_KV.put(`login_${loginRecord.studentId}_${Date.now()}`, JSON.stringify(loginRecord));
-        }
-
+      // -------------------------------------------------------------
+      // API 路由 1：取得後台全部資料 (GET 或 POST action: get_all_data)
+      // -------------------------------------------------------------
+      if (request.method === "GET" && (path === "/api/data" || path === "/api/admin/dashboard" || path === "/")) {
         return new Response(JSON.stringify({
           success: true,
-          message: "身分驗證通過，登入成功！",
-          student: loginRecord
+          totalStudents: Object.keys(db.studentScores).length,
+          totalLogins: db.loginLogs.length,
+          studentScores: db.studentScores,
+          questionStats: db.questionStats,
+          loginLogs: db.loginLogs.slice(0, 100), // 最新 100 筆
+          serverTime: new Date().toISOString()
         }), { headers: corsHeaders() });
       }
 
-      // 2. 單元成績提交與每題通過率累計 API
-      if (path === "/api/scores/submit" && request.method === "POST") {
-        const body = await request.json();
-        const { studentId, name, className, seat, unitId, score, timeSpent, questionResults } = body;
-
-        const scoreRecord = {
-          studentId: String(studentId).trim(),
-          name: String(name).trim(),
-          class: String(className).trim(),
-          seat: Number(seat),
-          unitId: Number(unitId),
-          score: Number(score),
-          timeSpent: Number(timeSpent || 0),
-          submittedAt: new Date().toISOString()
-        };
-
-        const scoreKey = `${scoreRecord.studentId}_U${scoreRecord.unitId}`;
-        globalData.scores[scoreKey] = scoreRecord;
-
-        // 更新每題通過率
-        if (Array.isArray(questionResults)) {
-          questionResults.forEach(item => {
-            const qId = item.qId;
-            if (!globalData.questionStats[qId]) {
-              globalData.questionStats[qId] = {
-                qId: qId,
-                unitId: scoreRecord.unitId,
-                attempts: 0,
-                correct: 0,
-                passRate: "0%"
-              };
-            }
-            const st = globalData.questionStats[qId];
-            st.attempts += 1;
-            if (item.correct) st.correct += 1;
-            st.passRate = ((st.correct / st.attempts) * 100).toFixed(1) + "%";
-          });
+      // -------------------------------------------------------------
+      // API 路由 2：POST 請求 (支援 action 格式或 REST 格式)
+      // -------------------------------------------------------------
+      if (request.method === "POST") {
+        let body = {};
+        try {
+          body = await request.json();
+        } catch (e) {
+          body = {};
         }
 
-        // 持久化儲存至 KV
-        if (env.SCORES_KV) {
-          await env.SCORES_KV.put(`score_${scoreKey}`, JSON.stringify(scoreRecord));
-          await env.SCORES_KV.put("global_question_stats", JSON.stringify(globalData.questionStats));
+        const action = body.action || "";
+        const clientIp = request.headers.get("CF-Connecting-IP") || "127.0.0.1";
+
+        // 動作 A：記錄學生登入
+        if (action === "log_login" || path === "/api/auth/login") {
+          const s = body.data || body;
+          const logEntry = {
+            class: s.class || "未知",
+            seat: s.seat || 0,
+            name: s.name || "未知",
+            studentId: s.studentId || "unknown",
+            loginTime: s.loginTime || new Date().toLocaleString("zh-TW", { hour12: false }),
+            timestamp: Date.now(),
+            ip: clientIp
+          };
+          db.loginLogs.unshift(logEntry);
+          if (db.loginLogs.length > 500) db.loginLogs.pop(); // 保留最新 500 筆
+
+          // 若該學生尚無成績紀錄，建立基本資料
+          if (!db.studentScores[s.studentId]) {
+            db.studentScores[s.studentId] = {
+              class: s.class,
+              seat: s.seat,
+              name: s.name,
+              studentId: s.studentId,
+              unitScores: {},
+              lastUpdated: Date.now()
+            };
+          }
+
+          await saveDb(env, db);
+          return new Response(JSON.stringify({ success: true, message: "登入日誌記錄成功" }), { headers: corsHeaders() });
         }
 
-        return new Response(JSON.stringify({
-          success: true,
-          message: "成績與作答數據已成功記錄至後台！",
-          scoreRecord
-        }), { headers: corsHeaders() });
-      }
+        // 動作 B：提交與更新單元成績
+        if (action === "submit_score" || path === "/api/quiz/submit") {
+          const payload = body.data || body;
+          const s = payload.student || payload;
+          const sId = s.studentId;
+          const unitId = payload.unitId;
+          const finalScore = payload.finalScore !== undefined ? payload.finalScore : payload.score;
 
-      // 3. 教師後台數據總覽 API (包含各單元成績與每題通過率)
-      if (path === "/api/admin/overview" && request.method === "GET") {
-        // 若有 KV，合併 KV 最新資料
-        if (env.SCORES_KV) {
-          const statsVal = await env.SCORES_KV.get("global_question_stats");
-          if (statsVal) {
-            globalData.questionStats = JSON.parse(statsVal);
+          if (!sId || !unitId) {
+            return new Response(JSON.stringify({ success: false, error: "缺少學號或單元ID" }), { status: 400, headers: corsHeaders() });
+          }
+
+          if (!db.studentScores[sId]) {
+            db.studentScores[sId] = {
+              class: s.class || "未知",
+              seat: s.seat || 0,
+              name: s.name || "未知",
+              studentId: sId,
+              unitScores: {},
+              lastUpdated: Date.now()
+            };
+          }
+
+          // 取最高分或最新成績
+          const prevScore = db.studentScores[sId].unitScores[unitId] || 0;
+          if (finalScore >= prevScore) {
+            db.studentScores[sId].unitScores[unitId] = finalScore;
+          }
+          db.studentScores[sId].lastUpdated = Date.now();
+
+          // 累計每題通過率
+          if (payload.results && Array.isArray(payload.results)) {
+            payload.results.forEach(res => {
+              const qId = res.qId;
+              if (!db.questionStats[qId]) {
+                db.questionStats[qId] = { attempts: 0, correct: 0, passRate: "0%" };
+              }
+              db.questionStats[qId].attempts++;
+              if (res.correct) db.questionStats[qId].correct++;
+              db.questionStats[qId].passRate = Math.round((db.questionStats[qId].correct / db.questionStats[qId].attempts) * 100) + "%";
+            });
+          }
+
+          await saveDb(env, db);
+          return new Response(JSON.stringify({ success: true, message: "成績儲存成功", studentScores: db.studentScores[sId] }), { headers: corsHeaders() });
+        }
+
+        // 動作 C：教師後台手動修改更新成績 (UPDATE)
+        if (action === "update_score" || path === "/api/admin/update-score") {
+          const payload = body.data || body;
+          const { studentId, unitId, newScore } = payload;
+
+          if (!studentId || !unitId || newScore === undefined) {
+            return new Response(JSON.stringify({ success: false, error: "缺少必要更新參數" }), { status: 400, headers: corsHeaders() });
+          }
+
+          if (db.studentScores[studentId]) {
+            db.studentScores[studentId].unitScores[unitId] = Number(newScore);
+            db.studentScores[studentId].lastUpdated = Date.now();
+            await saveDb(env, db);
+            return new Response(JSON.stringify({ success: true, message: "成績已手動更新", student: db.studentScores[studentId] }), { headers: corsHeaders() });
+          } else {
+            return new Response(JSON.stringify({ success: false, error: "查無此學生資料" }), { status: 404, headers: corsHeaders() });
           }
         }
 
-        return new Response(JSON.stringify({
-          success: true,
-          totalLogins: globalData.loginLogs.length,
-          recentLogins: globalData.loginLogs.slice(-50).reverse(),
-          scoresList: Object.values(globalData.scores),
-          questionStats: globalData.questionStats,
-          updatedAt: new Date().toISOString()
-        }), { headers: corsHeaders() });
-      }
+        // 動作 D：查詢單一學生成績 (QUERY)
+        if (action === "query_student" || path === "/api/admin/query-student") {
+          const q = (body.query || "").trim().toLowerCase();
+          const matches = Object.values(db.studentScores).filter(s => 
+            s.studentId.toLowerCase().includes(q) ||
+            s.name.toLowerCase().includes(q) ||
+            s.class.includes(q)
+          );
+          return new Response(JSON.stringify({ success: true, results: matches }), { headers: corsHeaders() });
+        }
 
-      // 4. 教師後台匯出 CSV 成績單 API
-      if (path === "/api/admin/export-csv" && request.method === "GET") {
-        let csvContent = "\uFEFF班級,座號,學號,姓名,單元ID,得分,作答耗時(秒),提交時間\n";
-        const scores = Object.values(globalData.scores);
-        scores.forEach(s => {
-          csvContent += `"${s.class}",${s.seat},"${s.studentId}","${s.name}",${s.unitId},${s.score},${s.timeSpent},"${s.submittedAt}"\n`;
-        });
+        // 動作 E：拉取全部資料庫
+        if (action === "get_all_data") {
+          return new Response(JSON.stringify({
+            success: true,
+            studentScores: db.studentScores,
+            questionStats: db.questionStats,
+            loginLogs: db.loginLogs.slice(0, 100)
+          }), { headers: corsHeaders() });
+        }
 
-        return new Response(csvContent, {
-          headers: {
-            "Content-Type": "text/csv; charset=utf-8",
-            "Content-Disposition": 'attachment; filename="cybercloud_student_scores.csv"',
-            "Access-Control-Allow-Origin": "*"
+        // 動作 F：清空資料庫 (需密碼保護)
+        if (action === "clear_database" || path === "/api/admin/clear") {
+          if (body.password === "teacher115") {
+            db.studentScores = {};
+            db.loginLogs = [];
+            db.questionStats = {};
+            await saveDb(env, db);
+            return new Response(JSON.stringify({ success: true, message: "資料庫已重置清空" }), { headers: corsHeaders() });
+          } else {
+            return new Response(JSON.stringify({ success: false, error: "密碼錯誤" }), { status: 403, headers: corsHeaders() });
           }
-        });
+        }
       }
 
-      // 預設健康檢查
-      return new Response(JSON.stringify({
-        status: "online",
-        service: "CyberCloud Cloudflare Worker Backend",
-        version: "2.0.0",
-        message: "國中資訊科技 108 課綱互動闖關後台 API 服務運作中"
-      }), { headers: corsHeaders() });
+      return new Response(JSON.stringify({ error: "找不到該 API 路由" }), { status: 404, headers: corsHeaders() });
 
     } catch (err) {
-      return new Response(JSON.stringify({ success: false, error: err.message }), {
-        status: 500,
-        headers: corsHeaders()
-      });
+      return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders() });
     }
   }
 };
