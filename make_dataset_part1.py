@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-生成純 UTF-8 乾淨且生動的 120 道國中生活時事題目，涵蓋 8 個單元。
+生成純 UTF-8 乾淨且生動的國中生活時事題目 (單元 1-1 與 1-2)
+完全避免要求學生在鍵盤按實體快捷鍵，改為安全的情境選擇題，避免觸發瀏覽器行為。
 """
 import json
 import codecs
@@ -10,31 +11,36 @@ units = [
         "unitId": "unit-1-1",
         "category": "第一章 雲端運算服務",
         "unitTitle": "單元 1-1：【基礎整備】瀏覽器操作與雲端架構入門",
-        "description": "掌握 Chrome 快捷鍵、雲端運算基礎特徵與本機／雲端環境差異。",
+        "description": "掌握 Chrome 瀏覽器操作概念、雲端運算基礎特徵與本機／雲端環境差異。",
         "questions": [
             {
                 "qId": "U11-01",
-                "type": "cloze",
+                "type": "choice",
                 "level": "基礎",
-                "scenario": "小明正在查台灣黑熊的科展資料，右手滑鼠一不小心點到關閉按鈕，剛才好不容易找到的網頁瞬間消失！他急得快哭了。",
-                "prompt": "在 Chrome 瀏覽器中，按下快速鍵組合 Ctrl + Shift + [BLANK] 可以立即救回剛才不小心關閉的分頁？",
-                "options": ["T", "W", "N", "R"],
-                "answer": "T",
-                "accepted": ["T", "t", "Ctrl+Shift+T", "ctrl+shift+t", "CTRL+SHIFT+T", "Ctrl + Shift + T"],
-                "hint": "英文字母 T 代表 Tab（分頁），按住 Ctrl+Shift 再按 T 就能召回分頁。",
-                "explanation": "【快捷鍵解析】Ctrl+Shift+T 是瀏覽器中最神奇的「後悔藥」，能依序復原最後關閉的瀏覽分頁！"
+                "scenario": "小明正在查台灣黑熊的科展資料，右手滑鼠一不小心點到關閉按鈕，剛才好不容易找到的網頁分頁瞬間消失！他急得快哭了。",
+                "prompt": "在 Chrome 瀏覽器中，想要瞬間救回剛才不小心關閉的最後一個分頁，下列哪一個快速鍵組合是正確的？（請直接在下方點選正確選項，切勿在鍵盤按下以免觸發瀏覽器分頁切換）",
+                "options": [
+                    "Ctrl + Shift + T",
+                    "Ctrl + Shift + W",
+                    "Ctrl + Shift + N",
+                    "Ctrl + Alt + Delete"
+                ],
+                "answer": "Ctrl + Shift + T",
+                "accepted": ["Ctrl + Shift + T", "Ctrl+Shift+T", "ctrl+shift+t", "CTRL+SHIFT+T", "T", "t"],
+                "hint": "英文字母 T 代表 Tab（分頁），這是特工最常用的分頁救援組合。",
+                "explanation": "【瀏覽器操作知識】Ctrl+Shift+T 是瀏覽器中最神奇的「後悔藥」，能依序復原最後關閉的瀏覽分頁！直接點選選項即可作答，不需在實體鍵盤按下。"
             },
             {
                 "qId": "U11-02",
                 "type": "choice",
                 "level": "基礎",
                 "scenario": "小華用學校電腦登入 Google 帳號準備上課，但下課如果忘記登出，帳號可能被下一位同學看到。",
-                "prompt": "在公共電腦上使用瀏覽器時，開啟哪一種模式可以在關閉視窗後自動清除瀏覽紀錄、Cookie 與填表資料？",
+                "prompt": "在公共電腦上使用瀏覽器時，開啟哪一種模式可以在關閉視窗後自動清除瀏覽紀錄、Cookie 與填表資料？（請點選正確選項）",
                 "options": ["無痕式視窗（Incognito）", "全螢幕模式（F11）", "開發人員工具模式", "閱讀模式"],
                 "answer": "無痕式視窗（Incognito）",
                 "accepted": ["無痕式視窗", "無痕", "無痕式視窗（Incognito）"],
-                "hint": "快捷鍵為 Ctrl+Shift+N，視窗會變成深灰色並戴上特工眼鏡。",
-                "explanation": "【資安守則】無痕模式不會在該台電腦保留歷史紀錄、Cookie 與暫存密碼，適合公共電腦借用。"
+                "hint": "功能名稱為無痕式視窗（Incognito），視窗會變成深灰色並戴上特工眼鏡。",
+                "explanation": "【資安守則】無痕模式不會在該台電腦保留歷史紀錄、Cookie 與暫存密碼，非常適合公共電腦借用。"
             },
             {
                 "qId": "U11-03",
@@ -55,15 +61,15 @@ units = [
             },
             {
                 "qId": "U11-04",
-                "type": "cloze",
+                "type": "choice",
                 "level": "基礎",
                 "scenario": "小芬想把常常造訪的國中教育會考考古題網站存下來，下次打開 Chrome 只要點一下就能進入。",
-                "prompt": "在 Chrome 網址列右方，按下那顆 [BLANK] 形狀圖示（快捷鍵 Ctrl+D），即可將目前網頁加入我的最愛書籤？",
-                "options": ["星星", "愛心", "時鐘", "放大鏡"],
-                "answer": "星星",
-                "accepted": ["星星", "星號", "star", "★", "五角星"],
-                "hint": "天上有許多閃閃發光的...",
-                "explanation": "【書籤功能】Chrome 網址列右側的「五角星」就是書籤按鈕，快捷鍵為 Ctrl+D。"
+                "prompt": "在 Chrome 網址列右方，點擊哪一種形狀的圖示，可以將目前瀏覽的網頁加入『我的最愛書籤』？（請點選正確選項）",
+                "options": ["星星圖示（★）", "愛心圖示（♥）", "時鐘圖示（🕒）", "放大鏡圖示（🔍）"],
+                "answer": "星星圖示（★）",
+                "accepted": ["星星圖示（★）", "星星", "星號", "star", "★"],
+                "hint": "天上有許多閃閃發光的星星圖示。",
+                "explanation": "【書籤功能】Chrome 網址列右側的「五角星」就是書籤按鈕，點選即可快速收藏，快捷鍵為 Ctrl+D。"
             },
             {
                 "qId": "U11-05",
@@ -87,11 +93,11 @@ units = [
                 "type": "choice",
                 "level": "基礎",
                 "scenario": "小強看到網頁字體太小，瞇著眼睛看得很辛苦。",
-                "prompt": "若想要在瀏覽器中快速放大網頁文字與圖片，應該按住 Ctrl 鍵並搭配鍵盤上的哪一個按鍵？",
+                "prompt": "若想要在瀏覽器中快速放大網頁文字與圖片，應該搭配鍵盤上的哪一個按鍵符號？（請點選正確選項，切勿在鍵盤按下以免影響版面）",
                 "options": ["+（加號鍵）", "-（減號鍵）", "0（數字零）", "Esc 鍵"],
                 "answer": "+（加號鍵）",
                 "accepted": ["+", "+號", "加號", "+（加號鍵）"],
-                "hint": "數學中的加法符號是甚麼？",
+                "hint": "數學中的加法符號（+）。",
                 "explanation": "【縮放快捷】Ctrl + 加號放大，Ctrl + 減號縮小，Ctrl + 0 恢復預設 100%。"
             },
             {
@@ -99,7 +105,7 @@ units = [
                 "type": "choice",
                 "level": "基礎",
                 "scenario": "小萱下載了一個檔案，但找不到存在電腦的哪裡。",
-                "prompt": "在 Chrome 瀏覽器中，按下哪一個快捷鍵組合可以立即開啟「下載內容（Downloads）」管理頁面？",
+                "prompt": "在 Chrome 瀏覽器中，按下哪一個快捷鍵組合可以快速開啟「下載內容（Downloads）」管理頁面？（請點選正確選項）",
                 "options": ["Ctrl + J", "Ctrl + P", "Ctrl + S", "Ctrl + F"],
                 "answer": "Ctrl + J",
                 "accepted": ["Ctrl + J", "Ctrl+J"],
@@ -108,15 +114,15 @@ units = [
             },
             {
                 "qId": "U11-08",
-                "type": "cloze",
+                "type": "choice",
                 "level": "基礎",
                 "scenario": "查資料時網頁內容太長，小傑只想快速找到課本提到的「光合作用」四個字。",
-                "prompt": "按下鍵盤快捷鍵 Ctrl + [BLANK] 可以叫出網頁搜尋浮動框，輸入關鍵字即可在整頁高亮跳轉？",
-                "options": ["F", "S", "O", "P"],
-                "answer": "F",
-                "accepted": ["F", "f", "Ctrl+F", "Ctrl + F", "Find"],
-                "hint": "英文 Find（尋找）的開頭字母。",
-                "explanation": "【快速尋找】Ctrl + F 是所有文書處理與瀏覽器通用的神級尋找快捷鍵！"
+                "prompt": "想要在整頁網頁中快速叫出搜尋浮動框，輸入關鍵字高亮跳轉，應該使用哪一個功能快捷鍵？（請點選正確選項）",
+                "options": ["Ctrl + F (Find)", "Ctrl + S (Save)", "Ctrl + P (Print)", "Ctrl + O (Open)"],
+                "answer": "Ctrl + F (Find)",
+                "accepted": ["Ctrl + F (Find)", "Ctrl+F", "Ctrl + F", "F", "Find"],
+                "hint": "英文 Find（尋找）的開頭字母是 F。",
+                "explanation": "【快速尋找】Ctrl + F 是所有文書處理與瀏覽器通用的快速尋找功能（Find）。"
             },
             {
                 "qId": "U11-09",
@@ -140,12 +146,12 @@ units = [
                 "type": "choice",
                 "level": "基礎",
                 "scenario": "小明在上課時網頁突然卡住、圖片載入失敗，老師請他重新整理頁面。",
-                "prompt": "重新整理當前網頁最常用的單鍵快捷鍵是？",
-                "options": ["F5", "F1", "F12", "Esc"],
-                "answer": "F5",
-                "accepted": ["F5", "f5"],
-                "hint": "鍵盤最上方功能鍵列的第 5 顆。",
-                "explanation": "【刷新網頁】F5 或 Ctrl+R 能重新向伺服器請求頁面資料。"
+                "prompt": "當網頁連線卡住或內容需要重新載入時，重新整理當前網頁最常用的鍵盤功能鍵是？（請直接點選下方選項，切勿在鍵盤按下以免刷新測驗網頁）",
+                "options": ["F5 鍵", "F1 鍵", "F12 鍵", "Esc 鍵"],
+                "answer": "F5 鍵",
+                "accepted": ["F5 鍵", "F5", "f5"],
+                "hint": "鍵盤最上方功能鍵列的第 5 顆（F5）。",
+                "explanation": "【刷新網頁】F5 或 Ctrl+R 能重新向伺服器請求頁面資料。本題直接點選按鈕作答即可。"
             },
             # 5 題進階時事挑戰題
             {
@@ -445,7 +451,7 @@ units = [
                 "answer": "利用空間儲存量篩選，批次找出並清理 Gmail 中帶有「巨大影音附件」的信件與雲端垃圾桶",
                 "accepted": ["利用空間儲存量篩選，批次找出並清理 Gmail 中帶有「巨大影音附件」的信件與雲端垃圾桶"],
                 "hint": "影音大檔案通常佔用超過 90% 的儲存容量。",
-                "explanation": "【數位收納技巧】搜尋 `has:attachment larger:10M` 可迅速撈出肥大信件，有效釋放空間。"
+                "explanation": "【數位收納技巧】搜尋 has:attachment larger:10M 可迅速撈出肥大信件，有效釋放空間。"
             }
         ]
     }

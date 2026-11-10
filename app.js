@@ -1,7 +1,7 @@
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "3.8.0";
+const APP_VERSION = "4.0.0";
 const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.coral-desk.workers.dev";
 
 // 系統核心狀態
@@ -444,14 +444,8 @@ function renderInteractiveInput(q) {
 
     submitBtn.addEventListener('click', () => checkClozeAnswer(q, input.value));
     
-    // 實體快捷鍵防呆
+    // 安全鍵盤監聽 (僅支援 Enter 快速送出，絕不攔截實體快捷鍵避免瀏覽器衝突)
     input.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && (e.key === 't' || e.key === 'T' || e.code === 'KeyT')) {
-        e.preventDefault();
-        input.value = 'Ctrl+Shift+T';
-        checkClozeAnswer(q, 'Ctrl+Shift+T');
-        return;
-      }
       if (e.key === 'Enter') {
         e.preventDefault();
         checkClozeAnswer(q, input.value);
