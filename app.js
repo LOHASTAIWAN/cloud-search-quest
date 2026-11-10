@@ -2,7 +2,7 @@
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
 const APP_VERSION = "4.0.0";
-const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.coral-desk.workers.dev";
+const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.meadow-xenon.workers.dev";
 
 // 系統核心狀態
 const appState = {
