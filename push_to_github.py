@@ -31,9 +31,10 @@ if res:
     token = blob.decode('utf-16-le').strip('\x00')
     CredFree(pcred)
     
-    # 確保 git 追蹤並 commit 任何未追蹤修改
+    import sys
+    msg = sys.argv[1] if len(sys.argv) > 1 else 'chore: update project assets and worksheets'
     subprocess.run(['git', 'add', '.'], check=True)
-    subprocess.run(['git', 'commit', '-m', 'feat: shuffle choice options randomly (Fisher-Yates), rewrite 40 high-order thinking Google Docs worksheets with screenshot requirements, bump v4.2'], check=False)
+    subprocess.run(['git', 'commit', '-m', msg], check=False)
 
     remote_url = f'https://LOHASTAIWAN:{token}@github.com/LOHASTAIWAN/cloud-search-quest.git'
     subprocess.run(['git', 'remote', 'set-url', 'origin', remote_url], check=True)
