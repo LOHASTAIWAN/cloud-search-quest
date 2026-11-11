@@ -2512,3 +2512,250 @@ body {
   white-space: nowrap;
   user-select: none;
 }
+
+
+/* ==========================================================================
+   主題風格切換器 (三種風格：Cyber Dark / Fresh Light / Pixel Arcade)
+   ========================================================================== */
+.theme-switcher-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glow);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+}
+.theme-select {
+  background: transparent;
+  color: var(--text-main);
+  border: none;
+  outline: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.theme-select option {
+  background: var(--bg-secondary);
+  color: var(--text-main);
+}
+
+/* 清新校園風格 (Fresh Light) */
+body[data-theme="fresh"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --border-glow: #cbd5e1;
+  --cyan-glow: #0284c7;
+  --cyan-dark: #0369a1;
+  --emerald-glow: #059669;
+  --purple-glow: #7c3aed;
+  --amber-glow: #d97706;
+  --rose-glow: #e11d48;
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --shadow-neon: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  background: #f8fafc;
+  color: #0f172a;
+}
+body[data-theme="fresh"] .header-bar {
+  background: rgba(255, 255, 255, 0.95);
+  border-bottom: 1px solid #e2e8f0;
+}
+body[data-theme="fresh"] .quest-card,
+body[data-theme="fresh"] .login-card-container,
+body[data-theme="fresh"] .unit-lobby-card,
+body[data-theme="fresh"] .result-card-container,
+body[data-theme="fresh"] .admin-panel-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+body[data-theme="fresh"] .option-choice-btn {
+  background: #f8fafc;
+  color: #1e293b;
+  border: 1.5px solid #cbd5e1;
+}
+body[data-theme="fresh"] .option-choice-btn:hover {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0369a1;
+}
+body[data-theme="fresh"] .form-control,
+body[data-theme="fresh"] .game-input {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1.5px solid #cbd5e1;
+}
+
+/* 像素街機風格 (Pixel Arcade) */
+body[data-theme="arcade"] {
+  --bg-primary: #180b2b;
+  --bg-secondary: #271246;
+  --bg-card: #281446;
+  --bg-card-hover: #3b1b66;
+  --border-glow: #fbbf24;
+  --cyan-glow: #06b6d4;
+  --cyan-dark: #0891b2;
+  --emerald-glow: #22c55e;
+  --purple-glow: #f43f5e;
+  --amber-glow: #fbbf24;
+  --rose-glow: #ef4444;
+  --text-main: #fef9c3;
+  --text-muted: #d8b4fe;
+  --shadow-neon: 0 0 20px rgba(251, 191, 36, 0.35);
+  background: #180b2b;
+  color: #fef9c3;
+}
+body[data-theme="arcade"] .quest-card,
+body[data-theme="arcade"] .unit-lobby-card,
+body[data-theme="arcade"] .result-card-container {
+  border: 2px solid #fbbf24;
+  box-shadow: 4px 4px 0px #f59e0b;
+}
+body[data-theme="arcade"] .option-choice-btn {
+  border: 2px solid #a855f7;
+  box-shadow: 3px 3px 0px #7e22ce;
+}
+
+/* ==========================================================================
+   30 秒答題倒數計時器
+   ========================================================================== */
+.question-timer-bar-wrap {
+  margin: 12px 0 16px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border-glow);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+}
+.timer-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.88rem;
+  margin-bottom: 6px;
+}
+.timer-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.timer-countdown {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--cyan-glow);
+  transition: color 0.3s ease;
+}
+.timer-countdown.warning {
+  color: var(--amber-glow);
+}
+.timer-countdown.danger {
+  color: var(--rose-glow);
+  animation: timerPulse 0.6s infinite alternate;
+}
+@keyframes timerPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.15); }
+}
+.timer-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.timer-progress-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #10b981, #06b6d4);
+  border-radius: 4px;
+  transition: width 1s linear, background 0.3s ease;
+}
+.timer-progress-fill.warning {
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+.timer-progress-fill.danger {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+/* ==========================================================================
+   單元 15 題完成後的簡易美觀對錯題分析圖表
+   ========================================================================== */
+.result-analysis-section {
+  margin-top: 24px;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border-glow);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+.analysis-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.analysis-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--cyan-glow);
+}
+.analysis-summary-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip-item {
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+.chip-perfect { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+.chip-hint { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+.chip-wrong { background: rgba(244, 63, 94, 0.2); color: #fb7185; border: 1px solid #f43f5e; }
+.chip-timeout { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid #94a3b8; }
+
+.question-matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.matrix-q-card {
+  padding: 8px 4px;
+  text-align: center;
+  border-radius: var(--radius-sm);
+  background: rgba(30, 41, 59, 0.8);
+  border: 1.5px solid rgba(148, 163, 184, 0.2);
+  transition: transform 0.2s ease;
+}
+.matrix-q-card:hover {
+  transform: translateY(-2px);
+}
+.matrix-q-card.status-perfect { border-color: #10b981; background: rgba(16, 185, 129, 0.15); }
+.matrix-q-card.status-hint { border-color: #f59e0b; background: rgba(245, 158, 11, 0.15); }
+.matrix-q-card.status-wrong { border-color: #f43f5e; background: rgba(244, 63, 94, 0.15); }
+.matrix-q-card.status-timeout { border-color: #94a3b8; background: rgba(148, 163, 184, 0.15); }
+
+.matrix-q-num {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.matrix-q-score {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin: 2px 0;
+}
+.matrix-q-type {
+  font-size: 0.68rem;
+  border-radius: 4px;
+  padding: 1px 4px;
+  display: inline-block;
+  color: var(--text-muted);
+}

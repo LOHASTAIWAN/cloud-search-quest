@@ -1,3 +1,123 @@
+
+// =========================================================================
+// 主題風格切換器 (三種風格：Cyber Dark / Fresh Light / Pixel Arcade)
+// =========================================================================
+window.changeTheme = function(themeName) {
+  document.body.setAttribute('data-theme', themeName);
+  localStorage.setItem('cybercloud_theme', themeName);
+  const sel = document.getElementById('themeSelect');
+  if (sel) sel.value = themeName;
+};
+
+// 30 秒限時作答計時器引擎
+function startQuestionTimer(durationSec = 30) {
+  stopQuestionTimer();
+  appState.timerSecondsLeft = durationSec;
+  
+  const timerText = document.getElementById('questionTimerText');
+  const timerBar = document.getElementById('questionTimerBar');
+  if (timerText) {
+    timerText.textContent = `${durationSec}s`;
+    timerText.className = 'timer-countdown';
+  }
+  if (timerBar) {
+    timerBar.style.width = '100%';
+    timerBar.className = 'timer-progress-fill';
+  }
+
+  appState.questionTimer = setInterval(() => {
+    if (appState.isAnswered) {
+      stopQuestionTimer();
+      return;
+    }
+    appState.timerSecondsLeft--;
+    const left = appState.timerSecondsLeft;
+    const pct = Math.max(0, (left / durationSec) * 100);
+
+    if (timerText) {
+      timerText.textContent = `${left}s`;
+      if (left <= 5) {
+        timerText.className = 'timer-countdown danger';
+      } else if (left <= 10) {
+        timerText.className = 'timer-countdown warning';
+      } else {
+        timerText.className = 'timer-countdown';
+      }
+    }
+
+    if (timerBar) {
+      timerBar.style.width = `${pct}%`;
+      if (left <= 5) {
+        timerBar.className = 'timer-progress-fill danger';
+      } else if (left <= 10) {
+        timerBar.className = 'timer-progress-fill warning';
+      } else {
+        timerBar.className = 'timer-progress-fill';
+      }
+    }
+
+    if (left <= 0) {
+      stopQuestionTimer();
+      const unit = QUEST_DATA.units[appState.activeUnitIdx];
+      const q = unit.questions[appState.activeQuestionIdx];
+      handleQuestionTimeout(q);
+    }
+  }, 1000);
+}
+
+function stopQuestionTimer() {
+  if (appState.questionTimer) {
+    clearInterval(appState.questionTimer);
+    appState.questionTimer = null;
+  }
+  if (appState.autoSkipTimer) {
+    clearInterval(appState.autoSkipTimer);
+    appState.autoSkipTimer = null;
+  }
+}
+
+function handleQuestionTimeout(q) {
+  if (appState.isAnswered) return;
+  appState.isAnswered = true;
+  sound.playWrong();
+  appState.combo = 0;
+  recordQuestionAttempt(q.qId, false);
+  appState.currentUnitResults.push({ qId: q.qId, correct: false, score: 0, usedHint: appState.usedHintForCurrentQ, timeout: true });
+
+  const feedbackArea = document.getElementById('feedbackArea');
+  feedbackArea.classList.remove('hidden');
+  feedbackArea.className = 'feedback-box error-feedback';
+  feedbackArea.innerHTML = `
+    <div class="feedback-header">
+      <span class="badge-error">⏰ 作答時間到（超過 30 秒）！本題 0 分</span>
+    </div>
+    <div class="correct-answer-row">
+      <strong>正確解答：</strong> <span class="highlight-ans">${escapeHtml(q.answer)}</span>
+    </div>
+    <div class="explanation-content">
+      <strong>【課本觀念解析】：</strong><br>${escapeHtml(q.explanation)}
+    </div>
+    <div style="margin-top:10px;padding:8px 12px;background:rgba(239,68,68,0.15);border-radius:6px;font-size:0.9rem;color:#fca5a5;" id="timeoutSkipNotice">
+      <i class="fa-solid fa-hourglass-half"></i> <strong>5 秒後將自動前往下一題...</strong>
+    </div>
+    <button class="next-q-btn" onclick="proceedToNextQuestion()">立即前往下一題 ➔</button>
+  `;
+
+  let autoSkipSec = 5;
+  const skipNotice = document.getElementById('timeoutSkipNotice');
+  appState.autoSkipTimer = setInterval(() => {
+    autoSkipSec--;
+    if (skipNotice) skipNotice.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> <strong>${autoSkipSec} 秒後將自動前往下一題...</strong>`;
+    if (autoSkipSec <= 0) {
+      clearInterval(appState.autoSkipTimer);
+      appState.autoSkipTimer = null;
+      proceedToNextQuestion();
+    }
+  }, 1000);
+
+  feedbackArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
@@ -19,7 +139,13 @@ const appState = {
   soundEnabled: true,
   isAnswered: false,
   unitStartTime: null,
-  currentUnitResults: [], // [{ qId, correct: true/false, score: number }]
+  currentUnitResults: [], // [{ qId, correct: true/false, score: number, usedHint: boolean, timeout: boolean }]
+
+  // 30 秒倒數計時與提示扣分狀態
+  questionTimer: null,
+  autoSkipTimer: null,
+  timerSecondsLeft: 30,
+  usedHintForCurrentQ: false,
   
   // 學習單 Modal 當前單元
   activeWorksheetUnitIdx: 0,
@@ -373,14 +499,19 @@ window.startQuestUnit = function(unitIdx) {
 
 // 渲染當前題目
 function renderCurrentQuestion() {
+  stopQuestionTimer();
   appState.isAnswered = false;
+  appState.usedHintForCurrentQ = false;
+
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
   const q = unit.questions[appState.activeQuestionIdx];
   const totalQ = unit.questions.length;
   const isChallenge = appState.activeQuestionIdx >= 10;
+  const maxPts = isChallenge ? 8 : 6;
+  const halfPts = isChallenge ? 4 : 3;
 
   document.getElementById('currentUnitName').textContent = unit.unitTitle;
-  document.getElementById('questionProgressText').textContent = `第 ${appState.activeQuestionIdx + 1} / ${totalQ} 題 ${isChallenge ? '【進階時事挑戰題】' : '【基礎生活核心題】'}`;
+  document.getElementById('questionProgressText').textContent = `第 ${appState.activeQuestionIdx + 1} / ${totalQ} 題 ${isChallenge ? '【進階時事挑戰題 (每題8分)】' : '【基礎生活核心題 (每題6分)】'}`;
   
   const progPct = ((appState.activeQuestionIdx + 1) / totalQ) * 100;
   document.getElementById('progressBarFill').style.width = `${progPct}%`;
@@ -392,12 +523,13 @@ function renderCurrentQuestion() {
   const qContainer = document.getElementById('questionContainer');
   qContainer.innerHTML = `
     <div class="question-tag-row">
-      <span class="q-type-badge">${q.type === 'cloze' ? '克漏字填空題' : '情境實戰題'}</span>
-      <span class="q-points-badge">${isChallenge ? '+5 分 (挑戰加分)' : '+10 分 (核心單元分)'}</span>
+      <span class="q-type-badge">${q.type === 'cloze' ? '克漏字填空題' : '選擇實戰題'}</span>
+      <span class="q-points-badge">${isChallenge ? '+8 分 (挑戰題・全單元滿分40)' : '+6 分 (基礎題・全單元滿分60)'}</span>
       <span class="q-level-badge">難度：${q.level}</span>
+      <span style="font-size:0.75rem;color:var(--text-muted);margin-left:auto;">(限時 30 秒・看提示得 ${halfPts} 分)</span>
     </div>
     <div class="scenario-box">
-      <div class="scenario-title">📌 生活與時事實際情境：</div>
+      <div class="scenario-title">📌 生活與課本情境：</div>
       <p class="scenario-text">${escapeHtml(q.scenario)}</p>
     </div>
     <div class="prompt-box">
@@ -410,6 +542,7 @@ function renderCurrentQuestion() {
   `;
 
   renderInteractiveInput(q);
+  startQuestionTimer(30);
 }
 
 function formatPromptContent(q) {
@@ -474,25 +607,34 @@ function renderInteractiveInput(q) {
 
     area.appendChild(optionsGrid);
 
+    const isChallenge = appState.activeQuestionIdx >= 10;
+    const halfPts = isChallenge ? 4 : 3;
+
     const hintBar = document.createElement('div');
     hintBar.className = 'hint-action-bar mt-3';
     hintBar.innerHTML = `
-      <button id="btnUseHint" class="hint-btn">💡 呼叫特工錦囊 (查看提示)</button>
+      <button id="btnUseHint" class="hint-btn">💡 呼叫特工錦囊 (查看提示・本題得分減半得 ${halfPts} 分)</button>
       <button id="btnGiveUp" class="give-up-btn hidden" onclick="giveUpCurrentQuestion()">⏭️ 我還是想不出來（查看正確解答並前進下一題）</button>
     `;
     area.appendChild(hintBar);
 
     document.getElementById('btnUseHint').addEventListener('click', () => {
-      showQuestionHint(q.hint);
+      appState.usedHintForCurrentQ = true;
+      showQuestionHint(q.hint, halfPts);
       document.getElementById('btnGiveUp').classList.remove('hidden');
     });
   }
 }
 
-function showQuestionHint(hintText) {
+function showQuestionHint(hintText, halfPts) {
   const hintArea = document.getElementById('hintArea');
   if (!hintArea) return;
-  hintArea.innerHTML = `<strong>💡 特工錦囊提示：</strong> ${escapeHtml(hintText)}`;
+  hintArea.innerHTML = `
+    <div><strong>💡 特工錦囊提示：</strong> ${escapeHtml(hintText)}</div>
+    <div style="margin-top:6px;font-size:0.85rem;color:#f59e0b;font-weight:600;">
+      ⚠️ 注意：已開啟錦囊提示，本題若答對將以減半計分（得 ${halfPts || 3} 分）！
+    </div>
+  `;
   hintArea.classList.remove('hidden');
   hintArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -531,9 +673,14 @@ function checkOptionAnswer(q, selectedOpt, btnEl) {
 }
 
 function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
+  stopQuestionTimer();
   appState.isAnswered = true;
   const isChallenge = appState.activeQuestionIdx >= 10;
-  const points = isChallenge ? 5 : 10;
+  
+  // 新配分：前10題基礎題6分(計60分)，後5題挑戰題8分(計40分)；看提示得一半
+  const maxPts = isChallenge ? 8 : 6;
+  const halfPts = isChallenge ? 4 : 3;
+  const earnedPts = isCorrect ? (appState.usedHintForCurrentQ ? halfPts : maxPts) : 0;
 
   recordQuestionAttempt(q.qId, isCorrect);
 
@@ -546,23 +693,23 @@ function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
     if (appState.combo > appState.maxCombo) appState.maxCombo = appState.combo;
     if (appState.combo >= 3) sound.playCombo();
 
-    const earnedXp = points + (appState.combo > 1 ? appState.combo * 2 : 0);
+    const earnedXp = earnedPts + (appState.combo > 1 ? appState.combo * 2 : 0);
     appState.xp += earnedXp;
 
     feedbackArea.className = 'feedback-box success-feedback';
     feedbackArea.innerHTML = `
       <div class="feedback-header">
-        <span class="badge-success">🎉 答對了！+${points} 分</span>
+        <span class="badge-success">🎉 答對了！+${earnedPts} 分 ${appState.usedHintForCurrentQ ? '<small style="color:#fef08a;">(提示扣半)</small>' : ''}</span>
         ${appState.combo > 1 ? `<span class="combo-badge">🔥 連續答對 x${appState.combo}！</span>` : ''}
       </div>
       <div class="explanation-content">
-        <strong>【神偷解密專題知識】：</strong><br>${escapeHtml(q.explanation)}
+        <strong>【課本觀念解析】：</strong><br>${escapeHtml(q.explanation)}
       </div>
       <button class="next-q-btn" onclick="proceedToNextQuestion()">下一題 ➔</button>
     `;
 
     if (btnEl) btnEl.classList.add('btn-correct');
-    appState.currentUnitResults.push({ qId: q.qId, correct: true, score: points });
+    appState.currentUnitResults.push({ qId: q.qId, correct: true, score: earnedPts, usedHint: appState.usedHintForCurrentQ, timeout: false });
 
   } else {
     sound.playWrong();
@@ -572,20 +719,20 @@ function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
     feedbackArea.className = 'feedback-box error-feedback';
     feedbackArea.innerHTML = `
       <div class="feedback-header">
-        <span class="badge-error">❌ 哎呀，答錯了！</span>
+        <span class="badge-error">❌ 哎呀，答錯了！(0 分)</span>
         <span>你的回答：<code>${escapeHtml(studentInput)}</code></span>
       </div>
       <div class="correct-answer-row">
         <strong>正確答案：</strong> <span class="highlight-ans">${escapeHtml(q.answer)}</span>
       </div>
       <div class="explanation-content">
-        <strong>【神偷解密專題知識】：</strong><br>${escapeHtml(q.explanation)}
+        <strong>【課本觀念解析】：</strong><br>${escapeHtml(q.explanation)}
       </div>
       <button class="next-q-btn" onclick="proceedToNextQuestion()">看懂了，前往下一題 ➔</button>
     `;
 
     if (btnEl) btnEl.classList.add('btn-wrong');
-    appState.currentUnitResults.push({ qId: q.qId, correct: false, score: 0 });
+    appState.currentUnitResults.push({ qId: q.qId, correct: false, score: 0, usedHint: appState.usedHintForCurrentQ, timeout: false });
   }
 
   document.getElementById('hpDisplay').textContent = appState.hp;
@@ -597,6 +744,7 @@ function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
 
 window.giveUpCurrentQuestion = function() {
   if (appState.isAnswered) return;
+  stopQuestionTimer();
   appState.isAnswered = true;
   
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
@@ -627,6 +775,7 @@ window.giveUpCurrentQuestion = function() {
 };
 
 window.proceedToNextQuestion = function() {
+  stopQuestionTimer();
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
   if (appState.activeQuestionIdx + 1 < unit.questions.length) {
     appState.activeQuestionIdx++;
@@ -644,15 +793,23 @@ function concludeUnitQuest() {
   let baseScore = 0;
   let challengeScore = 0;
   let correctCount = 0;
+  let hintCount = 0;
+  let wrongCount = 0;
+  let timeoutCount = 0;
 
   appState.currentUnitResults.forEach((res, idx) => {
+    if (idx < 10) {
+      baseScore += res.score;
+    } else {
+      challengeScore += res.score;
+    }
+
     if (res.correct) {
       correctCount++;
-      if (idx < 10) {
-        baseScore += 10;
-      } else {
-        challengeScore += 5;
-      }
+      if (res.usedHint) hintCount++;
+    } else {
+      if (res.timeout) timeoutCount++;
+      else wrongCount++;
     }
   });
 
@@ -711,26 +868,86 @@ function renderResultScreen(res) {
   if (!container) return;
 
   let evaluation = '';
-  if (res.finalTotalScore >= 115) evaluation = '🏆 神級駭客特工！完美的數位思維與時事實踐力！';
-  else if (res.finalTotalScore >= 100) evaluation = '🌟 菁英特工！基礎題滿分，挑戰題表現亮眼！';
-  else if (res.finalTotalScore >= 80) evaluation = '✨ 優秀特工！已具備穩健的雲端與資料觀念！';
-  else if (res.finalTotalScore >= 60) evaluation = '👍 合格特工！基礎觀念及格，可再多複習挑戰題！';
-  else evaluation = '💪 見習特工，再接再厲！複習課本觀念後再挑戰一次！';
+  if (res.finalTotalScore >= 90) evaluation = '🏆 特工宗師！課本觀念與挑戰實戰近乎滿分！';
+  else if (res.finalTotalScore >= 80) evaluation = '🌟 菁英特工！基礎題扎實，挑戰題表現亮眼！';
+  else if (res.finalTotalScore >= 60) evaluation = '✨ 合格特工！基礎觀念及格，可再多複習挑戰題！';
+  else if (res.finalTotalScore >= 40) evaluation = '👍 再接再厲！建議多參考課本對應頁面加強！';
+  else evaluation = '💪 見習特工，不要氣餒！複習課本後再挑戰一次！';
+
+  // 統計 15 題對錯狀況
+  let perfectCount = 0;
+  let hintCount = 0;
+  let wrongCount = 0;
+  let timeoutCount = 0;
+
+  const matrixHtml = appState.currentUnitResults.map((r, idx) => {
+    let statusClass = 'status-wrong';
+    let statusText = '答錯';
+    let pts = r.score;
+
+    if (r.correct) {
+      if (r.usedHint) {
+        statusClass = 'status-hint';
+        statusText = '提示答對';
+        hintCount++;
+      } else {
+        statusClass = 'status-perfect';
+        statusText = '完全答對';
+        perfectCount++;
+      }
+    } else {
+      if (r.timeout) {
+        statusClass = 'status-timeout';
+        statusText = '逾時未答';
+        timeoutCount++;
+      } else {
+        wrongCount++;
+      }
+    }
+
+    const isChall = idx >= 10;
+    const maxP = isChall ? 8 : 6;
+    return `
+      <div class="matrix-q-card ${statusClass}">
+        <div class="matrix-q-num">第 ${idx + 1} 題</div>
+        <div class="matrix-q-score">${pts} / ${maxP}</div>
+        <span class="matrix-q-type">${statusText}</span>
+      </div>
+    `;
+  }).join('');
 
   container.innerHTML = `
     <div class="result-score-card">
       <div class="score-big-num">${res.finalTotalScore} <span class="score-unit">分</span></div>
       <div class="score-breakdown">
-        <span>基礎核心成績：<strong>${res.baseScore} / 100 分</strong></span>
-        <span>時事挑戰加分：<strong>+${res.challengeScore} 分</strong></span>
+        <span>基礎核心成績：<strong>${res.baseScore} / 60 分</strong></span>
+        <span>進階挑戰成績：<strong>${res.challengeScore} / 40 分</strong></span>
+        <span>總分滿分：<strong>100 分</strong></span>
       </div>
       <div class="result-evaluation-tag">${evaluation}</div>
     </div>
 
-    <div class="result-stats-grid">
+    <!-- 簡易美觀對錯題分析圖表 -->
+    <div class="result-analysis-section">
+      <div class="analysis-header">
+        <h3 class="analysis-title"><i class="fa-solid fa-chart-pie"></i> 15 題對錯與得分診斷分析</h3>
+        <div class="analysis-summary-chips">
+          <span class="chip-item chip-perfect">🟢 完美答對 ${perfectCount} 題</span>
+          <span class="chip-item chip-hint">🟡 提示減半 ${hintCount} 題</span>
+          <span class="chip-item chip-wrong">🔴 答錯 0分 ${wrongCount} 題</span>
+          <span class="chip-item chip-timeout">⚪ 逾時 0分 ${timeoutCount} 題</span>
+        </div>
+      </div>
+
+      <div class="question-matrix-grid">
+        ${matrixHtml}
+      </div>
+    </div>
+
+    <div class="result-stats-grid" style="margin-top:20px;">
       <div class="stat-box">
-        <div class="stat-lbl">答對題數</div>
-        <div class="stat-val">${res.correctCount} / ${res.totalQuestions}</div>
+        <div class="stat-lbl">答對率</div>
+        <div class="stat-val">${Math.round((res.correctCount / res.totalQuestions) * 100)}% (${res.correctCount} / ${res.totalQuestions})</div>
       </div>
       <div class="stat-box">
         <div class="stat-lbl">最高連擊</div>
@@ -1271,20 +1488,20 @@ function renderWorksheetModalContent() {
     card.innerHTML = `
       <div class="ws-q-header">
         <span class="ws-q-badge">第 ${q.qNum} 題</span>
-        <span class="ws-bloom-tag" style="background:#dcfce7;color:#15803d;font-size:0.75rem;padding:2px 8px;border-radius:12px;font-weight:600;margin-left:6px;">生活實戰</span>
+        <span class="ws-bloom-tag" style="background:rgba(16, 185, 129, 0.2);color:#34d399;border:1px solid #10b981;font-size:0.75rem;padding:2px 8px;border-radius:12px;font-weight:600;margin-left:6px;"><i class="fa-solid fa-book-open"></i> ${escapeHtml(q.bookPage || '')}</span>
         <span class="ws-q-title">${escapeHtml(q.title)}</span>
-        <span class="ws-q-words" style="margin-left:auto;font-size:0.8rem;color:#64748b;">${escapeHtml(q.wordCount)}</span>
+        <span class="ws-q-words" style="margin-left:auto;font-size:0.8rem;color:#94a3b8;">${escapeHtml(q.wordCount)}</span>
       </div>
-      <div class="ws-scenario-box" style="margin-top:8px;background:#f8fafc;padding:10px 14px;border-left:4px solid #3b82f6;border-radius:4px;font-size:0.92rem;line-height:1.6;">
-        <strong>📌 生活真實情境：</strong> ${escapeHtml(q.scenario)}
+      <div class="ws-scenario-box" style="margin-top:8px;background:rgba(56, 189, 248, 0.08);padding:10px 14px;border-left:4px solid var(--cyan-glow);border-radius:4px;font-size:0.92rem;line-height:1.6;">
+        <strong>📌 課本生活情境：</strong> ${escapeHtml(q.scenario)}
       </div>
-      <div class="ws-prompt-box" style="margin-top:10px;background:#fffbeb;padding:12px 14px;border-left:4px solid #f59e0b;border-radius:4px;font-size:0.92rem;line-height:1.7;">
-        <strong>🎯 動手任務與作答要求：</strong><br>${escapeHtml(q.prompt).replace(/\n/g, '<br>')}
+      <div class="ws-prompt-box" style="margin-top:10px;background:rgba(245, 158, 11, 0.08);padding:12px 14px;border-left:4px solid var(--amber-glow);border-radius:4px;font-size:0.92rem;line-height:1.7;">
+        <strong>🎯 動手任務與作答要求（截圖為主、文字為輔）：</strong><br>${escapeHtml(q.prompt).replace(/\n/g, '<br>')}
       </div>
       <div class="ws-answer-box" style="margin-top:10px;">
         <details>
-          <summary style="cursor:pointer;font-weight:600;color:#2563eb;padding:6px 0;"><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師參考回答與截圖檢查指標</summary>
-          <div class="ws-sample-answer-text" style="margin-top:8px;padding:12px;background:#f1f5f9;border-radius:6px;font-size:0.88rem;line-height:1.7;color:#1e293b;">${escapeHtml(q.sampleAnswer).replace(/\n/g, '<br>')}</div>
+          <summary style="cursor:pointer;font-weight:600;color:var(--cyan-glow);padding:6px 0;"><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師參考回答與截圖檢查指標</summary>
+          <div class="ws-sample-answer-text" style="margin-top:8px;padding:12px;background:rgba(15, 23, 42, 0.5);border-radius:6px;font-size:0.88rem;line-height:1.7;color:var(--text-main);">${escapeHtml(q.sampleAnswer).replace(/\n/g, '<br>')}</div>
         </details>
       </div>
     `;
@@ -1296,27 +1513,28 @@ window.copyCurrentWorksheet = function() {
   const ws = WORKSHEET_DATA[appState.activeWorksheetUnitIdx];
   if (!ws) return;
 
-  let text = `【國中資訊科技 108 課綱】課堂探究與生活實踐學習單 (生活實戰版)\n`;
-  text += `${ws.unitTitle}\n`;
+  let text = `【國中資訊科技 108 課綱】課堂探究與課本實踐學習單 (全8單元・課本同步版)\n`;
+  text += `${ws.unitTitle} (課本對應：${ws.textbookRef || ''})\n`;
   text += `班級：________ 座號：____ 姓名：____________ 評分：__________\n\n`;
   text += `------------------------------------------------------------\n\n`;
 
   ws.questions.forEach(q => {
     text += `【第 ${q.qNum} 題】${q.title}\n`;
-    text += `[規格] ${q.wordCount}\n`;
-    text += `[📌 生活真實情境] ${q.scenario}\n`;
-    text += `[🎯 動手任務與作答要求]：\n${q.prompt}\n\n`;
+    text += `[📖 參考課本 PDF] ${q.bookPage}\n`;
+    text += `[🎯 作答規格] ${q.wordCount}\n`;
+    text += `[📌 課本生活情境] ${q.scenario}\n`;
+    text += `[📝 動手任務與作答要求]：\n${q.prompt}\n\n`;
     text += `============================================================\n`;
-    text += `【學生作答區 1：文字回答 (30~60 字)】\n`;
-    text += `請在此處輸入你的文字回答：\n\n\n`;
-    text += `【學生作答區 2：實作操作截圖貼上】\n`;
-    text += `[請在此處按下 Ctrl+V 貼上操作截圖]\n\n`;
+    text += `【主要作答區：實作操作截圖貼上 (佔評分 70%)]\n`;
+    text += `[請在此處按下 Ctrl+V 貼上指定課本操作截圖]\n\n`;
+    text += `【輔助作答區：觀念重點簡答 20~40 字 (佔評分 30%)]\n`;
+    text += `請在此處輸入你的簡短回答：\n\n`;
     text += `============================================================\n`;
     text += `------------------------------------------------------------\n\n`;
   });
 
   navigator.clipboard.writeText(text).then(() => {
-    alert(`✅ 已成功將《${ws.unitTitle}》5 題生活實作學習單（含文字回答與截圖貼上區）複製至剪貼簿！\n您可以直接前往 Google 文件 (Google Docs) 按下 Ctrl+V 貼上派發給學生！`);
+    alert(`✅ 已成功將《${ws.unitTitle}》5 題課本同步實踐學習單（以截圖為主、文字為輔）複製至剪貼簿！\n您可以直接前往 Google 文件 (Google Docs) 按下 Ctrl+V 貼上派發給學生！`);
   }).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -1381,3 +1599,8 @@ function shuffleArray(arr) {
   }
   return array;
 }
+
+
+// 初始化套用保存的主題風格
+const savedAppTheme = localStorage.getItem('cybercloud_theme') || 'cyber';
+if (window.changeTheme) window.changeTheme(savedAppTheme);

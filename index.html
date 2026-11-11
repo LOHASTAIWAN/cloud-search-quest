@@ -42,6 +42,16 @@
           <i class="fa-solid fa-file-lines"></i> 簡答學習單
         </button>
 
+        <!-- 主題風格切換器 (三種風格自由選) -->
+        <div class="theme-switcher-box" title="切換網頁視覺風格">
+          <i class="fa-solid fa-palette text-cyan"></i>
+          <select id="themeSelect" class="theme-select" onchange="changeTheme(this.value)">
+            <option value="cyber">🚀 賽博特工 (暗黑科技)</option>
+            <option value="fresh">☀️ 清新校園 (明亮護眼)</option>
+            <option value="arcade">🎮 像素街機 (復古電玩)</option>
+          </select>
+        </div>
+
         <!-- 教師管理後台入口 -->
         <button id="btnTeacherPortal" class="nav-admin-btn" title="進入教師管理後台">
           <i class="fa-solid fa-user-shield"></i> 教師後台
@@ -54,7 +64,7 @@
 
         <!-- 網頁版本與更新時間戳記 (全域規範) -->
         <div class="web-version-badge" title="系統版本與發布時間">
-          v4.3 | 2026-11-11 08:24
+          v5.0 | 2026-11-11 10:45
         </div>
       </div>
     </div>
@@ -139,6 +149,17 @@
       <!-- 進度條 -->
       <div class="progress-bar-track">
         <div id="progressBarFill" class="progress-bar-fill" style="width: 6.6%;"></div>
+      </div>
+
+      <!-- 30 秒作答倒數計時條 -->
+      <div class="question-timer-bar-wrap">
+        <div class="timer-info-row">
+          <span class="timer-label"><i class="fa-solid fa-stopwatch-20"></i> 限時作答（超過 30 秒自動揭曉解答跳題）</span>
+          <span id="questionTimerText" class="timer-countdown">30s</span>
+        </div>
+        <div class="timer-progress-track">
+          <div id="questionTimerBar" class="timer-progress-fill" style="width: 100%;"></div>
+        </div>
       </div>
 
       <!-- 題目與互動區 -->
@@ -384,8 +405,8 @@
   </div>
 
   <!-- 載入核心題庫、學習單題庫與遊戲引擎 (純 UTF-8) -->
-  <script src="data.js?v=4.3.0"></script>
-  <script src="worksheets_data.js?v=4.3.0"></script>
-  <script src="app.js?v=4.3.0"></script>
+  <script src="data.js?v=5.0.0"></script>
+  <script src="worksheets_data.js?v=5.0.0"></script>
+  <script src="app.js?v=5.0.0"></script>
 </body>
 </html>
