@@ -1271,7 +1271,7 @@ function renderWorksheetModalContent() {
     card.innerHTML = `
       <div class="ws-q-header">
         <span class="ws-q-badge">第 ${q.qNum} 題</span>
-        <span class="ws-bloom-tag" style="background:#e0e7ff;color:#3730a3;font-size:0.75rem;padding:2px 8px;border-radius:12px;font-weight:600;margin-left:6px;">${escapeHtml(q.bloomLevel || '')}</span>
+        <span class="ws-bloom-tag" style="background:#dcfce7;color:#15803d;font-size:0.75rem;padding:2px 8px;border-radius:12px;font-weight:600;margin-left:6px;">生活實戰</span>
         <span class="ws-q-title">${escapeHtml(q.title)}</span>
         <span class="ws-q-words" style="margin-left:auto;font-size:0.8rem;color:#64748b;">${escapeHtml(q.wordCount)}</span>
       </div>
@@ -1279,11 +1279,11 @@ function renderWorksheetModalContent() {
         <strong>📌 生活真實情境：</strong> ${escapeHtml(q.scenario)}
       </div>
       <div class="ws-prompt-box" style="margin-top:10px;background:#fffbeb;padding:12px 14px;border-left:4px solid #f59e0b;border-radius:4px;font-size:0.92rem;line-height:1.7;">
-        <strong>🎯 高階思維任務與作答要求：</strong><br>${escapeHtml(q.prompt).replace(/\n/g, '<br>')}
+        <strong>🎯 動手任務與作答要求：</strong><br>${escapeHtml(q.prompt).replace(/\n/g, '<br>')}
       </div>
       <div class="ws-answer-box" style="margin-top:10px;">
         <details>
-          <summary style="cursor:pointer;font-weight:600;color:#2563eb;padding:6px 0;"><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師評分標準與參考範例（含截圖指標）</summary>
+          <summary style="cursor:pointer;font-weight:600;color:#2563eb;padding:6px 0;"><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師參考回答與截圖檢查指標</summary>
           <div class="ws-sample-answer-text" style="margin-top:8px;padding:12px;background:#f1f5f9;border-radius:6px;font-size:0.88rem;line-height:1.7;color:#1e293b;">${escapeHtml(q.sampleAnswer).replace(/\n/g, '<br>')}</div>
         </details>
       </div>
@@ -1296,27 +1296,27 @@ window.copyCurrentWorksheet = function() {
   const ws = WORKSHEET_DATA[appState.activeWorksheetUnitIdx];
   if (!ws) return;
 
-  let text = `【國中資訊科技 108 課綱】課堂探究與生活實踐高階思維學習單 (Google Docs 專用版)\n`;
+  let text = `【國中資訊科技 108 課綱】課堂探究與生活實踐學習單 (生活實戰版)\n`;
   text += `${ws.unitTitle}\n`;
-  text += `班級：________ 座號：____ 姓名：____________ 學號：__________ 評分：__________\n\n`;
+  text += `班級：________ 座號：____ 姓名：____________ 評分：__________\n\n`;
   text += `------------------------------------------------------------\n\n`;
 
   ws.questions.forEach(q => {
     text += `【第 ${q.qNum} 題】${q.title}\n`;
-    text += `[認知層次] ${q.bloomLevel} | [作答規格] ${q.wordCount}\n`;
-    text += `[生活真實情境] ${q.scenario}\n`;
-    text += `[高階思維任務與作答要求]：\n${q.prompt}\n\n`;
+    text += `[規格] ${q.wordCount}\n`;
+    text += `[📌 生活真實情境] ${q.scenario}\n`;
+    text += `[🎯 動手任務與作答要求]：\n${q.prompt}\n\n`;
     text += `============================================================\n`;
-    text += `【學生作答區 1：文字邏輯論述】\n`;
-    text += `（請在此處輸入你的文字分析與論述，建議 ${q.wordCount}）：\n\n\n`;
+    text += `【學生作答區 1：文字回答 (30~60 字)】\n`;
+    text += `請在此處輸入你的文字回答：\n\n\n`;
     text += `【學生作答區 2：實作操作截圖貼上】\n`;
-    text += `[請在此處按下 Ctrl+V 貼上指定操作之全螢幕或視窗截圖]\n\n`;
+    text += `[請在此處按下 Ctrl+V 貼上操作截圖]\n\n`;
     text += `============================================================\n`;
     text += `------------------------------------------------------------\n\n`;
   });
 
   navigator.clipboard.writeText(text).then(() => {
-    alert(`✅ 已成功將《${ws.unitTitle}》5 題 Google Docs 簡答學習單（含文字論述與實作截圖區）複製至剪貼簿！\n您可以直接前往 Google 文件 (Google Docs) 按下 Ctrl+V 貼上派發給學生！`);
+    alert(`✅ 已成功將《${ws.unitTitle}》5 題生活實作學習單（含文字回答與截圖貼上區）複製至剪貼簿！\n您可以直接前往 Google 文件 (Google Docs) 按下 Ctrl+V 貼上派發給學生！`);
   }).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
