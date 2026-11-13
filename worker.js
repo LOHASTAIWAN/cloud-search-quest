@@ -150,6 +150,10 @@ export default {
               unitScores: {},
               lastUpdated: Date.now()
             };
+          } else {
+            if (s.class) db.studentScores[sId].class = s.class;
+            if (s.seat) db.studentScores[sId].seat = s.seat;
+            if (s.name) db.studentScores[sId].name = s.name;
           }
 
           // 取最高分或最新成績
@@ -160,9 +164,11 @@ export default {
           db.studentScores[sId].lastUpdated = Date.now();
 
           // 累計每題通過率
-          if (payload.results && Array.isArray(payload.results)) {
-            payload.results.forEach(res => {
+          const qList = payload.results || payload.questionResults;
+          if (qList && Array.isArray(qList)) {
+            qList.forEach(res => {
               const qId = res.qId;
+              if (!qId) return;
               if (!db.questionStats[qId]) {
                 db.questionStats[qId] = { attempts: 0, correct: 0, passRate: "0%" };
               }
@@ -179,20 +185,26 @@ export default {
         // 動作 C：教師後台手動修改更新成績 (UPDATE)
         if (action === "update_score" || path === "/api/admin/update-score") {
           const payload = body.data || body;
-          const { studentId, unitId, newScore } = payload;
+          const { studentId, unitId, newScore, student } = payload;
 
           if (!studentId || !unitId || newScore === undefined) {
             return new Response(JSON.stringify({ success: false, error: "缺少必要更新參數" }), { status: 400, headers: corsHeaders() });
           }
 
-          if (db.studentScores[studentId]) {
-            db.studentScores[studentId].unitScores[unitId] = Number(newScore);
-            db.studentScores[studentId].lastUpdated = Date.now();
-            await saveDb(env, db);
-            return new Response(JSON.stringify({ success: true, message: "成績已手動更新", student: db.studentScores[studentId] }), { headers: corsHeaders() });
-          } else {
-            return new Response(JSON.stringify({ success: false, error: "查無此學生資料" }), { status: 404, headers: corsHeaders() });
+          if (!db.studentScores[studentId]) {
+            db.studentScores[studentId] = {
+              class: (student && student.class) || payload.class || "未知",
+              seat: (student && student.seat) || payload.seat || 0,
+              name: (student && student.name) || payload.name || "未知",
+              studentId: studentId,
+              unitScores: {},
+              lastUpdated: Date.now()
+            };
           }
+          db.studentScores[studentId].unitScores[unitId] = Number(newScore);
+          db.studentScores[studentId].lastUpdated = Date.now();
+          await saveDb(env, db);
+          return new Response(JSON.stringify({ success: true, message: "成績已手動更新", student: db.studentScores[studentId] }), { headers: corsHeaders() });
         }
 
         // 動作 D：查詢單一學生成績 (QUERY)

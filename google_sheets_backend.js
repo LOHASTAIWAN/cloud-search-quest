@@ -102,16 +102,17 @@ function doPost(e) {
         sheet.appendRow(newRow);
       }
 
-      // 累計每題通過率 (questionResults)
-      if (d.questionResults && Array.isArray(d.questionResults)) {
+      // 累計每題通過率 (results || questionResults)
+      var qResults = d.results || d.questionResults;
+      if (qResults && Array.isArray(qResults)) {
         var qSheet = getOrCreateSheet(ss, "題目通過率", ["題號ID", "作答次數", "答對次數", "通過率"]);
         var qData = qSheet.getDataRange().getValues();
         var qMap = {};
         for (var r = 1; r < qData.length; r++) {
           qMap[String(qData[r][0])] = { row: r + 1, attempts: Number(qData[r][1]) || 0, correct: Number(qData[r][2]) || 0 };
         }
-        for (var j = 0; j < d.questionResults.length; j++) {
-          var qr = d.questionResults[j];
+        for (var j = 0; j < qResults.length; j++) {
+          var qr = qResults[j];
           if (!qr.qId) continue;
           if (qMap[qr.qId]) {
             var info = qMap[qr.qId];

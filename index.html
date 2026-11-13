@@ -64,7 +64,7 @@
 
         <!-- 網頁版本與更新時間戳記 (全域規範) -->
         <div class="web-version-badge" title="系統版本與發布時間">
-          v5.2 | 2026-11-13 16:18
+          v5.3 | 2026-11-13 16:35
         </div>
       </div>
     </div>
@@ -235,7 +235,7 @@
             <span id="cloudStatusBadge" class="cloud-status-badge offline">未連線</span>
           </div>
           <div class="cf-input-row">
-            <input type="text" id="cfWorkerInput" placeholder="請貼入您部署的 Cloudflare Worker 或 Google Apps Script 網址" class="form-control" value="">
+            <input type="text" id="cfWorkerInput" placeholder="請貼入您部署的 Cloudflare Worker 或 Google Apps Script 網址" class="form-control" value="https://cybercloud-backend.fruit-a1-english.workers.dev">
             <button class="primary-btn" onclick="saveCfWorkerConfig()">儲存並測試連線</button>
             <button class="secondary-btn" onclick="testCloudConnection()">連線測試</button>
             <button class="secondary-btn" onclick="copyShareableClassUrl()" title="產生內含雲端資料庫網址的連結，貼到 Classroom 讓學生開啟即自動連線"><i class="fa-solid fa-share-nodes"></i> 複製全班測驗連結</button>
@@ -406,8 +406,8 @@
   </div>
 
   <!-- 載入核心題庫、學習單題庫與遊戲引擎 (純 UTF-8) -->
-  <script src="data.js?v=5.2.0"></script>
-  <script src="worksheets_data.js?v=5.2.0"></script>
-  <script src="app.js?v=5.2.0"></script>
+  <script src="data.js?v=5.3.0"></script>
+  <script src="worksheets_data.js?v=5.3.0"></script>
+  <script src="app.js?v=5.3.0"></script>
 </body>
 </html>

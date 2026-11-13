@@ -121,16 +121,16 @@ function handleQuestionTimeout(q) {
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "5.2.0";
-const DEFAULT_CF_WORKER_URL = "";
+const APP_VERSION = "5.3.0";
+const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.fruit-a1-english.workers.dev";
 
 function getValidCloudUrl() {
   const saved = localStorage.getItem('CYBERCLOUD_CF_URL') || '';
-  if (saved.includes('meadow-xenon.workers.dev')) {
-    localStorage.removeItem('CYBERCLOUD_CF_URL');
+  if (!saved || saved.includes('meadow-xenon.workers.dev')) {
+    localStorage.setItem('CYBERCLOUD_CF_URL', DEFAULT_CF_WORKER_URL);
     return DEFAULT_CF_WORKER_URL;
   }
-  return saved || DEFAULT_CF_WORKER_URL;
+  return saved;
 }
 
 // 系統核心狀態
