@@ -121,8 +121,17 @@ function handleQuestionTimeout(q) {
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "4.0.0";
-const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.meadow-xenon.workers.dev";
+const APP_VERSION = "5.2.0";
+const DEFAULT_CF_WORKER_URL = "";
+
+function getValidCloudUrl() {
+  const saved = localStorage.getItem('CYBERCLOUD_CF_URL') || '';
+  if (saved.includes('meadow-xenon.workers.dev')) {
+    localStorage.removeItem('CYBERCLOUD_CF_URL');
+    return DEFAULT_CF_WORKER_URL;
+  }
+  return saved || DEFAULT_CF_WORKER_URL;
+}
 
 // 系統核心狀態
 const appState = {
@@ -155,8 +164,8 @@ const appState = {
   questionStats: {}, // key: qId -> { attempts: 0, correct: 0, passRate: '0%' }
   loginLogs: [],     // [{ class, seat, studentId, name, loginTime, timestamp }]
 
-  // 遠端資料庫 API 設定 (預設直連已部署之 Cloudflare Worker)
-  cfWorkerUrl: localStorage.getItem('CYBERCLOUD_CF_URL') || DEFAULT_CF_WORKER_URL
+  // 遠端資料庫 API 設定 (若尚未部署請至後台設定真實 Cloudflare Worker 或 Google Apps Script URL)
+  cfWorkerUrl: getValidCloudUrl()
 };
 
 // Web Audio API 音效生成器 (無須外連 mp3)
@@ -985,28 +994,55 @@ function recordQuestionAttempt(qId, isCorrect) {
 // =========================================================================
 // 遠端雲端資料庫 API 通訊模組 (記錄、更新、拉取)
 // =========================================================================
+// 若網址帶有 ?cloud_api=... 參數，自動儲存並綁定資料庫網址 (方便全班在任何電腦打開即自動連線)
+(function checkUrlCloudApiParam() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const apiParam = params.get('cloud_api');
+    if (apiParam && (apiParam.startsWith('http://') || apiParam.startsWith('https://'))) {
+      appState.cfWorkerUrl = apiParam.trim();
+      localStorage.setItem('CYBERCLOUD_CF_URL', appState.cfWorkerUrl);
+    }
+  } catch (e) {}
+})();
+
 async function syncToCloudflare(action, payload) {
   const url = appState.cfWorkerUrl;
-  if (!url) return;
+  if (!url) {
+    updateCloudStatusBadge(false);
+    return false;
+  }
   try {
-    await fetch(url, {
+    // 使用 text/plain;charset=utf-8 避免觸發 Google Apps Script CORS OPTIONS 預檢阻擋，且 Cloudflare Worker 同樣可完整解析 JSON
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: action, data: payload, timestamp: Date.now() })
     });
+    if (res.ok) {
+      updateCloudStatusBadge(true);
+      return true;
+    }
+    updateCloudStatusBadge(false);
+    return false;
   } catch (err) {
-    console.warn('同步至雲端資料庫異常 (資料仍已完整保存在本機快取):', err);
+    console.warn('同步至雲端資料庫異常 (資料仍已保存在本機快取):', err);
+    updateCloudStatusBadge(false);
+    return false;
   }
 }
 
 // 靜默拉取雲端資料
 async function silentPullCloudData() {
   const url = appState.cfWorkerUrl;
-  if (!url) return;
+  if (!url) {
+    updateCloudStatusBadge(false);
+    return false;
+  }
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'get_all_data' })
     });
     if (res.ok) {
@@ -1014,8 +1050,21 @@ async function silentPullCloudData() {
       if (data.studentScores) {
         mergeStudentScores(data.studentScores);
       }
+      if (data.questionStats) {
+        Object.assign(appState.questionStats, data.questionStats);
+      }
+      if (data.loginLogs && Array.isArray(data.loginLogs)) {
+        appState.loginLogs = data.loginLogs;
+      }
+      updateCloudStatusBadge(true);
+      return true;
     }
-  } catch(e) {}
+    updateCloudStatusBadge(false);
+    return false;
+  } catch (e) {
+    updateCloudStatusBadge(false);
+    return false;
+  }
 }
 
 // 合併雲端學生成績
@@ -1039,26 +1088,32 @@ function mergeStudentScores(cloudScores) {
 }
 
 // 教師手動點擊「立即從雲端資料庫同步」
-window.pullFromCloudDatabase = async function() {
+window.pullFromCloudDatabase = async function(btnEl) {
   const url = appState.cfWorkerUrl;
   if (!url) {
-    alert('尚未設定雲端資料庫網址！請先在下方「遠端雲端資料庫串接設定」中填入 Worker 或 Google Apps Script 網址。');
+    alert('尚未設定有效雲端資料庫網址！請先在下方「遠端雲端資料庫串接設定」填入真實的 Cloudflare Worker 或 Google Apps Script 網頁應用程式網址。');
     return;
   }
 
-  try {
-    const btn = event.target;
+  const btn = btnEl || (typeof event !== 'undefined' ? event.target.closest('button') : null);
+  const origHtml = btn ? btn.innerHTML : '';
+  if (btn) {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 同步中...';
     btn.disabled = true;
+  }
 
+  try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'get_all_data' })
     });
 
     if (res.ok) {
       const data = await res.json();
+      if (data.success === false) {
+        throw new Error(data.error || '後端回傳錯誤');
+      }
       if (data.studentScores) {
         mergeStudentScores(data.studentScores);
       }
@@ -1069,7 +1124,7 @@ window.pullFromCloudDatabase = async function() {
         appState.loginLogs = data.loginLogs;
       }
       persistRecords();
-      renderTeacherDashboard();
+      renderTeacherDashboard(true);
       updateCloudStatusBadge(true);
       alert('🎉 雲端資料庫同步完成！已成功抓取並合併最新全校學生成績與作答紀錄！');
     } else {
@@ -1077,9 +1132,12 @@ window.pullFromCloudDatabase = async function() {
     }
   } catch (err) {
     updateCloudStatusBadge(false);
-    alert('❌ 連線至雲端資料庫失敗：' + err.message + '\n請確認網址是否正確並已開放 CORS 跨域存取。');
+    alert('❌ 連線至雲端資料庫失敗：' + err.message + '\n請確認網址是否已正確部署並開放所有人 (Anyone) 存取。');
   } finally {
-    renderTeacherDashboard();
+    if (btn) {
+      btn.innerHTML = origHtml || '<i class="fa-solid fa-rotate"></i> 雲端同步';
+      btn.disabled = false;
+    }
   }
 };
 
@@ -1087,18 +1145,25 @@ window.pullFromCloudDatabase = async function() {
 window.testCloudConnection = async function() {
   const url = document.getElementById('cfWorkerInput').value.trim();
   if (!url) {
+    updateCloudStatusBadge(false);
     alert('請先輸入資料庫網址！');
     return;
   }
   try {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'get_all_data' })
     });
     if (res.ok) {
-      updateCloudStatusBadge(true);
-      alert('✅ 恭喜！雲端資料庫連線成功！可以正常進行記錄、更新與查詢！');
+      const data = await res.json();
+      if (data && data.success !== false) {
+        updateCloudStatusBadge(true);
+        alert('✅ 恭喜！雲端資料庫連線成功！可以正常進行記錄、更新與查詢！');
+      } else {
+        updateCloudStatusBadge(false);
+        alert('⚠️ 連線成功但後端回傳異常：' + (data.error || '未知錯誤'));
+      }
     } else {
       updateCloudStatusBadge(false);
       alert('⚠️ 伺服器已回應但狀態異常：' + res.status);
@@ -1117,7 +1182,7 @@ function updateCloudStatusBadge(isOnline) {
     badge.innerHTML = '<i class="fa-solid fa-circle-check"></i> 已連線';
   } else {
     badge.className = 'cloud-status-badge offline';
-    badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 未連線 / 異常';
+    badge.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 未連線 / 未設定';
   }
 }
 
@@ -1126,8 +1191,23 @@ window.saveCfWorkerConfig = function() {
   const val = document.getElementById('cfWorkerInput').value.trim();
   appState.cfWorkerUrl = val;
   localStorage.setItem('CYBERCLOUD_CF_URL', val);
-  alert('雲端資料庫網址設定已儲存！');
   testCloudConnection();
+};
+
+// 產生帶有 ?cloud_api=... 的全班專用連結，貼到 Classroom 讓學生在任何電腦都能自動寫入雲端
+window.copyShareableClassUrl = function() {
+  const url = (document.getElementById('cfWorkerInput') ? document.getElementById('cfWorkerInput').value.trim() : '') || appState.cfWorkerUrl;
+  if (!url) {
+    alert('請先設定並儲存有效的雲端資料庫網址！');
+    return;
+  }
+  const baseUrl = window.location.origin + window.location.pathname;
+  const shareUrl = `${baseUrl}?cloud_api=${encodeURIComponent(url)}`;
+  navigator.clipboard.writeText(shareUrl).then(() => {
+    alert(`✅ 已複製全班專用測驗連結！\n學生在任何電腦點擊此連結開啟測驗，成績都會自動同步至您的雲端資料庫：\n\n${shareUrl}`);
+  }).catch(() => {
+    prompt('請複製以下全班專用連結貼至 Google Classroom：', shareUrl);
+  });
 };
 
 // =========================================================================
@@ -1143,7 +1223,7 @@ function openTeacherAuthModal() {
   }
 }
 
-function renderTeacherDashboard() {
+function renderTeacherDashboard(skipPing = false) {
   const totalStudents = appState.roster.length || 318;
   const testedStudentIds = Object.keys(appState.studentScores);
   const testedCount = testedStudentIds.length;
@@ -1159,8 +1239,10 @@ function renderTeacherDashboard() {
   if (workerInput) {
     workerInput.value = appState.cfWorkerUrl;
   }
-  if (appState.cfWorkerUrl) {
-    updateCloudStatusBadge(true);
+  if (!appState.cfWorkerUrl) {
+    updateCloudStatusBadge(false);
+  } else if (!skipPing) {
+    silentPullCloudData();
   }
 }
 
