@@ -1486,22 +1486,40 @@ function renderWorksheetModalContent() {
     const card = document.createElement('div');
     card.className = 'ws-question-card';
     card.innerHTML = `
-      <div class="ws-q-header">
-        <span class="ws-q-badge">第 ${q.qNum} 題</span>
-        <span class="ws-bloom-tag" style="background:rgba(16, 185, 129, 0.2);color:#34d399;border:1px solid #10b981;font-size:0.75rem;padding:2px 8px;border-radius:12px;font-weight:600;margin-left:6px;"><i class="fa-solid fa-book-open"></i> ${escapeHtml(q.bookPage || '')}</span>
-        <span class="ws-q-title">${escapeHtml(q.title)}</span>
-        <span class="ws-q-words" style="margin-left:auto;font-size:0.8rem;color:#94a3b8;">${escapeHtml(q.wordCount)}</span>
+      <div class="ws-q-header" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <span class="ws-q-badge" style="background:#2563eb;color:#fff;font-weight:700;padding:3px 10px;border-radius:6px;">第 ${q.qNum} 題</span>
+        <span class="ws-score-tag" style="background:rgba(234, 179, 8, 0.2);color:#facc15;border:1px solid #eab308;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:700;">⭐ 配分：${escapeHtml(q.score || '20分 (滿分100分)')}</span>
+        <span class="ws-bloom-tag" style="background:rgba(16, 185, 129, 0.2);color:#34d399;border:1px solid #10b981;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:600;"><i class="fa-solid fa-book-open"></i> ${escapeHtml(q.bookPage || '')}</span>
+        <span class="ws-tool-tag" style="background:rgba(56, 189, 248, 0.15);color:#38bdf8;border:1px solid #0284c7;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:600;"><i class="fa-solid fa-screwdriver-wrench"></i> ${escapeHtml(q.tool || '')}</span>
       </div>
-      <div class="ws-scenario-box" style="margin-top:8px;background:rgba(56, 189, 248, 0.08);padding:10px 14px;border-left:4px solid var(--cyan-glow);border-radius:4px;font-size:0.92rem;line-height:1.6;">
-        <strong>📌 課本生活情境：</strong> ${escapeHtml(q.scenario)}
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text-bright);margin-bottom:8px;">${escapeHtml(q.title)}</div>
+      
+      <div class="ws-scenario-box" style="margin-top:6px;background:rgba(56, 189, 248, 0.08);padding:10px 14px;border-left:4px solid var(--cyan-glow);border-radius:4px;font-size:0.92rem;line-height:1.6;">
+        <strong>📌 課堂實作情境：</strong> ${escapeHtml(q.scenario)}
       </div>
+
       <div class="ws-prompt-box" style="margin-top:10px;background:rgba(245, 158, 11, 0.08);padding:12px 14px;border-left:4px solid var(--amber-glow);border-radius:4px;font-size:0.92rem;line-height:1.7;">
-        <strong>🎯 動手任務與作答要求（截圖為主、文字為輔）：</strong><br>${escapeHtml(q.prompt).replace(/\n/g, '<br>')}
+        <strong>🎯 實作操作指引與具體任務：</strong><br>
+        ${escapeHtml(q.taskSteps).replace(/\n/g, '<br>')}
       </div>
-      <div class="ws-answer-box" style="margin-top:10px;">
+
+      <div style="margin-top:10px;background:rgba(168, 85, 247, 0.08);padding:12px 14px;border-left:4px solid #a855f7;border-radius:4px;font-size:0.92rem;line-height:1.6;">
+        <strong>🔍 最終截圖要求（老師批改一眼判定標準）：</strong><br>
+        <span style="color:#c084fc;">👉 ${escapeHtml(q.screenshotTarget)}</span>
+      </div>
+
+      <div class="ws-paste-preview-box" style="margin-top:12px;border:2px dashed rgba(56, 189, 248, 0.4);border-radius:8px;padding:20px;text-align:center;background:rgba(15, 23, 42, 0.4);color:#94a3b8;">
+        <i class="fa-solid fa-camera" style="font-size:1.6rem;color:var(--cyan-glow);margin-bottom:6px;display:block;"></i>
+        <strong style="color:var(--cyan-glow);">【第 ${q.qNum} 題 學生實作操作截圖貼上區】</strong><br>
+        <span style="font-size:0.85rem;">（在 Google 文件中於此框內按下 Ctrl + V 貼上螢幕截圖，佔評分 100%）</span>
+      </div>
+
+      <div class="ws-answer-box" style="margin-top:12px;">
         <details>
-          <summary style="cursor:pointer;font-weight:600;color:var(--cyan-glow);padding:6px 0;"><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師參考回答與截圖檢查指標</summary>
-          <div class="ws-sample-answer-text" style="margin-top:8px;padding:12px;background:rgba(15, 23, 42, 0.5);border-radius:6px;font-size:0.88rem;line-height:1.7;color:var(--text-main);">${escapeHtml(q.sampleAnswer).replace(/\n/g, '<br>')}</div>
+          <summary style="cursor:pointer;font-weight:600;color:var(--cyan-glow);padding:6px 0;"><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師評分檢核點（滿分 20 分）</summary>
+          <div class="ws-sample-answer-text" style="margin-top:8px;padding:12px;background:rgba(15, 23, 42, 0.6);border-radius:6px;font-size:0.88rem;line-height:1.7;color:var(--text-main);">
+            ${escapeHtml(q.gradingChecklist).replace(/\n/g, '<br>')}
+          </div>
         </details>
       </div>
     `;
@@ -1513,28 +1531,42 @@ window.copyCurrentWorksheet = function() {
   const ws = WORKSHEET_DATA[appState.activeWorksheetUnitIdx];
   if (!ws) return;
 
-  let text = `【國中資訊科技 108 課綱】課堂探究與課本實踐學習單 (全8單元・課本同步版)\n`;
-  text += `${ws.unitTitle} (課本對應：${ws.textbookRef || ''})\n`;
-  text += `班級：________ 座號：____ 姓名：____________ 評分：__________\n\n`;
+  let text = `【115資訊科技】課堂探究與課本實踐學習單（Google Docs / Classroom 副本專用）\n`;
+  text += `單元名稱：${ws.unitTitle}\n`;
+  text += `課程進度：${ws.textbookRef || ''}\n`;
+  text += `評分標準：本單元共 5 題，每題 20 分，滿分 100 分\n`;
+  text += `學生資料：班級：_______ 班    座號：_______ 號    姓名：_______________    學號：_______________    總分：_______ / 100\n\n`;
+  text += `============================================================\n`;
+  text += `【學生作答指引】\n`;
+  text += `1. 請開啟 Chrome 瀏覽器，依照每題「實作操作步驟」實際操作相應工具。\n`;
+  text += `2. 操作完成後，按下螢幕截圖（鍵盤 Win + Shift + S 或 PrtScn）。\n`;
+  text += `3. 直接在指定的【📸 截圖貼上區】按下 Ctrl + V 貼上您的最終成果截圖。\n`;
+  text += `4. 全部 5 題完成後，直接在 Google Classroom 點擊「繳交」！\n`;
+  text += `============================================================\n\n`;
   text += `------------------------------------------------------------\n\n`;
 
   ws.questions.forEach(q => {
-    text += `【第 ${q.qNum} 題】${q.title}\n`;
-    text += `[📖 參考課本 PDF] ${q.bookPage}\n`;
-    text += `[🎯 作答規格] ${q.wordCount}\n`;
-    text += `[📌 課本生活情境] ${q.scenario}\n`;
-    text += `[📝 動手任務與作答要求]：\n${q.prompt}\n\n`;
-    text += `============================================================\n`;
-    text += `【主要作答區：實作操作截圖貼上 (佔評分 70%)]\n`;
-    text += `[請在此處按下 Ctrl+V 貼上指定課本操作截圖]\n\n`;
-    text += `【輔助作答區：觀念重點簡答 20~40 字 (佔評分 30%)]\n`;
-    text += `請在此處輸入你的簡短回答：\n\n`;
-    text += `============================================================\n`;
+    text += `【第 ${q.qNum} 題】${q.title}（配分：20 分）\n`;
+    text += `- 📖 課本依據：${q.bookPage}\n`;
+    text += `- 🛠️ 使用工具：${q.tool}\n`;
+    text += `- 📌 情境說明：${q.scenario}\n\n`;
+    text += `🎯 實作操作指引與具體任務：\n`;
+    text += `${q.taskSteps}\n\n`;
+    text += `🔍 最終截圖要求（老師批改一眼判定標準）：\n`;
+    text += `👉 ${q.screenshotTarget}\n\n`;
+    text += `+------------------------------------------------------------------+\n`;
+    text += `|               📸 【第 ${q.qNum} 題 學生實作操作截圖貼上區】                |\n`;
+    text += `|                                                                  |\n`;
+    text += `|       [ 請在此框內按下鍵盤 Ctrl + V 貼上您的最終操作成果截圖 ]    |\n`;
+    text += `|                                                                  |\n`;
+    text += `+------------------------------------------------------------------+\n\n`;
+    text += `✅ 教師評分檢核點（滿分 20 分）：\n`;
+    text += `${q.gradingChecklist}\n\n`;
     text += `------------------------------------------------------------\n\n`;
   });
 
   navigator.clipboard.writeText(text).then(() => {
-    alert(`✅ 已成功將《${ws.unitTitle}》5 題課本同步實踐學習單（以截圖為主、文字為輔）複製至剪貼簿！\n您可以直接前往 Google 文件 (Google Docs) 按下 Ctrl+V 貼上派發給學生！`);
+    alert(`✅ 已成功複製《${ws.unitTitle}》Google Docs 學習單！\n每題 20 分（滿分 100 分），已為 Google Classroom「建立副本」格式最佳化。\n您可直接前往 Google 文件貼上 (Ctrl+V) 派發！`);
   }).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -1542,7 +1574,7 @@ window.copyCurrentWorksheet = function() {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    alert(`✅ 已複製至剪貼簿！可直接貼至 Google Docs。`);
+    alert(`✅ 已複製至剪貼簿！可直接貼入 Google Docs / Classroom。`);
   });
 };
 
