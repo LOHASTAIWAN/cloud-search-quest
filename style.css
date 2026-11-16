@@ -2759,3 +2759,252 @@ body[data-theme="arcade"] .option-choice-btn {
   display: inline-block;
   color: var(--text-muted);
 }
+
+
+/* ==========================================================================
+   v6.0 多元互動題型專屬樣式（快閃是非 / 偵探複選 / 步驟排序 / 二進位開關）
+   ========================================================================== */
+.tf-battle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+  margin: 18px 0;
+}
+.tf-choice-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 26px 16px;
+  border-radius: 16px;
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fafc;
+  font-size: 1.2rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tf-choice-btn .tf-icon {
+  font-size: 2.2rem;
+}
+.tf-choice-btn.tf-true:hover {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25);
+}
+.tf-choice-btn.tf-false:hover {
+  border-color: #f43f5e;
+  background: rgba(244, 63, 94, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(244, 63, 94, 0.25);
+}
+
+.multi-hint-banner {
+  background: rgba(56, 189, 248, 0.14);
+  border-left: 4px solid #38bdf8;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 0.94rem;
+  color: #e0f2fe;
+}
+.multi-choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.multi-choice-btn .opt-check-box {
+  font-size: 1.25rem;
+  color: #38bdf8;
+}
+.multi-choice-btn.selected {
+  border-color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.22) !important;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+.interactive-submit-row {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.order-quest-container {
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 14px;
+  padding: 16px;
+}
+.order-slots-header, .order-pool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.92rem;
+  margin-bottom: 10px;
+  color: #38bdf8;
+}
+.order-pool-header {
+  margin-top: 16px;
+  color: #fbbf24;
+}
+.order-reset-btn {
+  background: rgba(148, 163, 184, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  color: #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.order-chosen-zone {
+  min-height: 76px;
+  border: 2px dashed rgba(56, 189, 248, 0.4);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(2, 6, 23, 0.35);
+}
+.order-empty-hint {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  text-align: center;
+  margin: auto;
+}
+.order-pool-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.order-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.85);
+  color: #f8fafc;
+  font-size: 0.94rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.order-card.pool:hover:not(:disabled) {
+  border-color: #fbbf24;
+  transform: translateX(4px);
+}
+.order-card.pool.used {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.order-card.chosen {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.16);
+}
+.order-num-badge {
+  background: #10b981;
+  color: #022c22;
+  font-weight: 800;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.order-remove-tag {
+  margin-left: auto;
+  color: #f43f5e;
+  font-weight: 700;
+}
+
+.binary-switch-panel {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 14px;
+  padding: 18px;
+  text-align: center;
+}
+.binary-instruction {
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  margin-bottom: 14px;
+}
+.binary-switches-row {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.bit-switch-card {
+  width: 84px;
+  padding: 14px 8px;
+  border-radius: 14px;
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  background: rgba(30, 41, 59, 0.85);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.bit-switch-card.bit-on {
+  border-color: #facc15;
+  background: rgba(234, 179, 8, 0.22);
+  color: #fef08a;
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.4);
+  transform: translateY(-3px);
+}
+.bit-weight {
+  font-size: 0.78rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.bit-bulb {
+  font-size: 1.8rem;
+}
+.bit-val {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+.binary-readout {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  background: rgba(2, 6, 23, 0.45);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+/* 明亮護眼主題適配 */
+body[data-theme="fresh"] .tf-choice-btn,
+body[data-theme="fresh"] .order-card,
+body[data-theme="fresh"] .bit-switch-card {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+body[data-theme="fresh"] .order-quest-container,
+body[data-theme="fresh"] .binary-switch-panel {
+  background: #f8fafc;
+  color: #0f172a;
+}
+body[data-theme="fresh"] .multi-hint-banner,
+body[data-theme="fresh"] .binary-instruction {
+  color: #0369a1;
+}
+body[data-theme="fresh"] .binary-readout {
+  background: #e2e8f0;
+  color: #0f172a;
+}

@@ -121,7 +121,7 @@ function handleQuestionTimeout(q) {
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "5.3.0";
+const APP_VERSION = "6.0.0";
 const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.fruit-a1-english.workers.dev";
 
 function getValidCloudUrl() {
@@ -471,6 +471,9 @@ function initUnitLobby() {
       }
     }
 
+    const wsObj = (typeof WORKSHEET_DATA !== 'undefined' && WORKSHEET_DATA[idx]) ? WORKSHEET_DATA[idx] : null;
+    const appsBadgeText = wsObj && wsObj.appsUsed ? wsObj.appsUsed.join(' · ') : '📋 實作任務包';
+
     card.innerHTML = `
       <div class="unit-header">
         <span class="unit-badge">單元 0${idx + 1}</span>
@@ -479,15 +482,15 @@ function initUnitLobby() {
       <h3 class="unit-title">${unit.unitTitle}</h3>
       <p class="unit-desc">${unit.description}</p>
       <div class="unit-meta">
-        <span>🎯 題目：${unit.questions.length} 題 (前10題基礎60分 + 後5題挑戰40分)</span>
+        <span>🎯 測驗：${unit.questions.length} 題多元互動 (前10題60分 + 後5題40分)</span>
         <span class="unit-score-badge">最佳成績：<strong>${bestScore}</strong>${attemptsCount > 0 ? ` <small>(已闖關 ${attemptsCount} 次)</small>` : ''}</span>
       </div>
       <div class="unit-card-actions">
         <button class="start-unit-btn" onclick="startQuestUnit(${idx})">
           <i class="fa-solid fa-play"></i> 進入闖關挑戰
         </button>
-        <button class="unit-worksheet-btn" onclick="openWorksheetModal(${idx})" title="開啟 Google Docs 5 題生活簡答學習單">
-          <i class="fa-solid fa-file-pen"></i> Google Docs 5題簡答學習單
+        <button class="unit-worksheet-btn" onclick="openWorksheetModal(${idx})" title="檢視與複製本單元實務作業任務包">
+          <i class="fa-solid fa-layer-group"></i> 實作作業 (${escapeHtml(appsBadgeText)})
         </button>
       </div>
     `;
@@ -495,7 +498,7 @@ function initUnitLobby() {
   });
 }
 
-// 開始進行特定單元測驗（防作弊機制：每次進入/重考均對題目順序與選項進行雙重隨機洗牌）
+// 開始進行特定單元測驗（防作弊機制：每次進入/重考均對題目順序、選項順序、排序卡片進行雙重隨機洗牌）
 window.startQuestUnit = function(unitIdx) {
   sound.init();
   const unit = QUEST_DATA.units[unitIdx];
@@ -504,10 +507,18 @@ window.startQuestUnit = function(unitIdx) {
   // 分層洗牌：前 10 題基礎題(60分) 亂序洗牌 + 後 5 題挑戰題(40分) 亂序洗牌
   const basePool = shuffleArray(rawQuestions.slice(0, 10));
   const challengePool = shuffleArray(rawQuestions.slice(10));
-  appState.activeQuestions = [...basePool, ...challengePool].map(q => ({
-    ...q,
-    options: q.options ? shuffleArray(q.options) : q.options
-  }));
+  appState.activeQuestions = [...basePool, ...challengePool].map(q => {
+    const cloned = { ...q };
+    if (q.type === 'true_false') {
+      cloned.options = q.options ? [...q.options] : ['⭕ 正確 (TRUE)', '❌ 錯誤 (FALSE)'];
+    } else if (q.options) {
+      cloned.options = shuffleArray(q.options);
+    }
+    if (q.type === 'order' && q.steps) {
+      cloned.shuffledSteps = shuffleArray(q.steps);
+    }
+    return cloned;
+  });
 
   appState.activeUnitIdx = unitIdx;
   appState.activeQuestionIdx = 0;
@@ -522,6 +533,17 @@ window.startQuestUnit = function(unitIdx) {
   showScreen('quizScreen');
   renderCurrentQuestion();
 };
+
+function getQuestionTypeLabel(type) {
+  switch (type) {
+    case 'true_false': return '⚡ 快閃是非判斷';
+    case 'multi_select': return '☑️ 特工偵探複選';
+    case 'order': return '🧩 步驟排序大挑戰';
+    case 'binary_switch': return '💡 二進位位元開關';
+    case 'cloze': return '🎯 情境填空實戰';
+    default: return '🎯 選擇實戰題';
+  }
+}
 
 // 渲染當前題目
 function renderCurrentQuestion() {
@@ -550,10 +572,10 @@ function renderCurrentQuestion() {
   const qContainer = document.getElementById('questionContainer');
   qContainer.innerHTML = `
     <div class="question-tag-row">
-      <span class="q-type-badge">${q.type === 'cloze' ? '克漏字實戰題' : '選擇實戰題'}</span>
+      <span class="q-type-badge">${getQuestionTypeLabel(q.type)}</span>
       <span class="q-points-badge">${isChallenge ? '+8 分 (挑戰題・全單元滿分40)' : '+6 分 (基礎題・全單元滿分60)'}</span>
       <span class="q-level-badge">難度：${q.level}</span>
-      <span style="font-size:0.75rem;color:var(--text-muted);margin-left:auto;">(限時 30 秒・看提示得 ${halfPts} 分・題序選項已隨機)</span>
+      <span style="font-size:0.75rem;color:var(--text-muted);margin-left:auto;">(限時 30 秒・看提示得 ${halfPts} 分・題序隨機)</span>
     </div>
     <div class="scenario-box">
       <div class="scenario-title">📌 生活與課本情境：</div>
@@ -574,15 +596,247 @@ function renderCurrentQuestion() {
 
 function formatPromptContent(q) {
   if (q.type === 'cloze') {
-    return q.prompt.replace(/\[\s*BLANK\s*\]/g, '<span class="cloze-blank">【 ？ 填空位置 】</span>');
+    return escapeHtml(q.prompt).replace(/\[\s*BLANK\s*\]/g, '<span class="cloze-blank">【 ？ 填空位置 】</span>');
   }
   return escapeHtml(q.prompt);
+}
+
+function appendHintBar(area, q) {
+  const isChallenge = appState.activeQuestionIdx >= 10;
+  const halfPts = isChallenge ? 4 : 3;
+  const hintBar = document.createElement('div');
+  hintBar.className = 'hint-action-bar mt-3';
+  hintBar.innerHTML = `
+    <button id="btnUseHint" class="hint-btn">💡 呼叫特工錦囊 (查看提示・本題得分減半得 ${halfPts} 分)</button>
+    <button id="btnGiveUp" class="give-up-btn hidden" onclick="giveUpCurrentQuestion()">⏭️ 我還是想不出來（查看正確解答並前進下一題）</button>
+  `;
+  area.appendChild(hintBar);
+
+  document.getElementById('btnUseHint').addEventListener('click', () => {
+    appState.usedHintForCurrentQ = true;
+    showQuestionHint(q.hint, halfPts);
+    document.getElementById('btnGiveUp').classList.remove('hidden');
+  });
 }
 
 function renderInteractiveInput(q) {
   const area = document.getElementById('answerArea');
   area.innerHTML = '';
 
+  // 1. 快閃是非判斷題 (true_false)
+  if (q.type === 'true_false') {
+    const tfGrid = document.createElement('div');
+    tfGrid.className = 'tf-battle-grid';
+    const opts = q.options || ['⭕ 正確 (TRUE)', '❌ 錯誤 (FALSE)'];
+    opts.forEach(opt => {
+      const isTrueOpt = opt.includes('正確');
+      const btn = document.createElement('button');
+      btn.className = `tf-choice-btn ${isTrueOpt ? 'tf-true' : 'tf-false'}`;
+      btn.innerHTML = `<span class="tf-icon">${isTrueOpt ? '⭕' : '❌'}</span><span class="tf-label">${isTrueOpt ? '正確 (TRUE)' : '錯誤 (FALSE)'}</span>`;
+      btn.addEventListener('click', () => checkOptionAnswer(q, opt, btn));
+      tfGrid.appendChild(btn);
+    });
+    area.appendChild(tfGrid);
+    appendHintBar(area, q);
+    return;
+  }
+
+  // 2. 特工偵探複選題 (multi_select)
+  if (q.type === 'multi_select' && q.options) {
+    const infoTip = document.createElement('div');
+    infoTip.className = 'multi-hint-banner';
+    infoTip.innerHTML = `<i class="fa-solid fa-list-check"></i> 請點選 <strong>全部正確項目</strong>（共 ${q.correctOptions ? q.correctOptions.length : '多'} 項），選完點擊下方「鎖定複選答案」：`;
+    area.appendChild(infoTip);
+
+    const grid = document.createElement('div');
+    grid.className = 'options-grid multi-grid';
+    const selectedSet = new Set();
+    const shuffledOptions = shuffleArray(q.options);
+
+    shuffledOptions.forEach((opt, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'option-choice-btn multi-choice-btn';
+      btn.innerHTML = `<span class="opt-check-box">☐</span> <span class="opt-badge">${String.fromCharCode(65 + idx)}</span> <span class="opt-text">${escapeHtml(opt)}</span>`;
+      btn.addEventListener('click', () => {
+        if (appState.isAnswered) return;
+        if (selectedSet.has(opt)) {
+          selectedSet.delete(opt);
+          btn.classList.remove('selected');
+          btn.querySelector('.opt-check-box').textContent = '☐';
+        } else {
+          selectedSet.add(opt);
+          btn.classList.add('selected');
+          btn.querySelector('.opt-check-box').textContent = '☑';
+        }
+      });
+      grid.appendChild(btn);
+    });
+    area.appendChild(grid);
+
+    const submitRow = document.createElement('div');
+    submitRow.className = 'interactive-submit-row';
+    submitRow.innerHTML = `<button class="primary-btn submit-multi-btn"><i class="fa-solid fa-lock"></i> 鎖定並送出複選答案</button>`;
+    submitRow.querySelector('button').addEventListener('click', () => {
+      if (appState.isAnswered) return;
+      if (selectedSet.size === 0) {
+        alert('請至少勾選一個選項喔！');
+        return;
+      }
+      const correctArr = q.correctOptions || [];
+      const isCorrect = selectedSet.size === correctArr.length && correctArr.every(c => selectedSet.has(c));
+      handleAnswerResult(isCorrect, q, Array.from(selectedSet).join('、'));
+    });
+    area.appendChild(submitRow);
+    appendHintBar(area, q);
+    return;
+  }
+
+  // 3. 步驟排序大挑戰 (order)
+  if (q.type === 'order' && q.steps) {
+    const chosenOrder = [];
+    const poolSteps = q.shuffledSteps || shuffleArray(q.steps);
+
+    const orderWrap = document.createElement('div');
+    orderWrap.className = 'order-quest-container';
+    orderWrap.innerHTML = `
+      <div class="order-slots-header">
+        <span>🧩 <strong>已排好順序（點擊可退回重選）：</strong></span>
+        <button type="button" class="order-reset-btn">🔄 清空重排</button>
+      </div>
+      <div id="orderChosenZone" class="order-chosen-zone">
+        <div class="order-empty-hint">請依正確順序點擊下方步驟卡片...</div>
+      </div>
+      <div class="order-pool-header">📦 <strong>待選步驟卡片（隨機打亂）：</strong></div>
+      <div id="orderPoolZone" class="order-pool-zone"></div>
+      <div class="interactive-submit-row">
+        <button id="btnSubmitOrder" class="primary-btn"><i class="fa-solid fa-check-double"></i> 確認送出順序解答</button>
+      </div>
+    `;
+    area.appendChild(orderWrap);
+
+    const chosenZone = document.getElementById('orderChosenZone');
+    const poolZone = document.getElementById('orderPoolZone');
+
+    function renderOrderZones() {
+      // 渲染已選區域
+      if (chosenOrder.length === 0) {
+        chosenZone.innerHTML = '<div class="order-empty-hint">請依正確順序點擊下方步驟卡片...</div>';
+      } else {
+        chosenZone.innerHTML = '';
+        chosenOrder.forEach((stepText, idx) => {
+          const item = document.createElement('button');
+          item.className = 'order-card chosen';
+          item.innerHTML = `<span class="order-num-badge">${idx + 1}</span> <span class="order-text">${escapeHtml(stepText)}</span> <span class="order-remove-tag">✕</span>`;
+          item.addEventListener('click', () => {
+            if (appState.isAnswered) return;
+            chosenOrder.splice(idx, 1);
+            renderOrderZones();
+          });
+          chosenZone.appendChild(item);
+        });
+      }
+
+      // 渲染待選區域
+      poolZone.innerHTML = '';
+      poolSteps.forEach((stepText) => {
+        const isUsed = chosenOrder.includes(stepText);
+        const btn = document.createElement('button');
+        btn.className = `order-card pool ${isUsed ? 'used' : ''}`;
+        btn.disabled = isUsed;
+        btn.innerHTML = `<span class="order-text">${escapeHtml(stepText)}</span>`;
+        btn.addEventListener('click', () => {
+          if (appState.isAnswered || isUsed) return;
+          chosenOrder.push(stepText);
+          renderOrderZones();
+        });
+        poolZone.appendChild(btn);
+      });
+    }
+
+    renderOrderZones();
+
+    orderWrap.querySelector('.order-reset-btn').addEventListener('click', () => {
+      if (appState.isAnswered) return;
+      chosenOrder.length = 0;
+      renderOrderZones();
+    });
+
+    document.getElementById('btnSubmitOrder').addEventListener('click', () => {
+      if (appState.isAnswered) return;
+      if (chosenOrder.length !== q.steps.length) {
+        alert(`請排滿全部 ${q.steps.length} 個步驟後再送出喔！（目前選了 ${chosenOrder.length} 個）`);
+        return;
+      }
+      const isCorrect = q.steps.every((s, idx) => chosenOrder[idx] === s);
+      handleAnswerResult(isCorrect, q, chosenOrder.map((s, i) => `${i + 1}. ${s}`).join(' ➔ '));
+    });
+
+    appendHintBar(area, q);
+    return;
+  }
+
+  // 4. 二進位位元開關實驗室 (binary_switch)
+  if (q.type === 'binary_switch') {
+    const weights = q.weights || [8, 4, 2, 1];
+    const bits = new Array(weights.length).fill(0);
+
+    const binBox = document.createElement('div');
+    binBox.className = 'binary-switch-panel';
+    binBox.innerHTML = `
+      <div class="binary-instruction">💡 點擊下方發光開關切換 <strong>0 (關)</strong> / <strong>1 (開)</strong>，讓組合數值等於題目目標：</div>
+      <div id="binarySwitchesRow" class="binary-switches-row"></div>
+      <div class="binary-readout">
+        <span>目前二進位：<code id="binaryCodeStr">${bits.join('')}</code></span>
+        <span>目前十進位總和：<strong id="binaryDecimalSum" style="color:var(--cyan-glow);font-size:1.3rem;">0</strong></span>
+      </div>
+      <div class="interactive-submit-row">
+        <button id="btnSubmitBinary" class="primary-btn"><i class="fa-solid fa-bolt"></i> 鎖定二進位開關送出驗證</button>
+      </div>
+    `;
+    area.appendChild(binBox);
+
+    const rowEl = document.getElementById('binarySwitchesRow');
+    const codeEl = document.getElementById('binaryCodeStr');
+    const sumEl = document.getElementById('binaryDecimalSum');
+
+    function updateBinaryView() {
+      rowEl.innerHTML = '';
+      let sum = 0;
+      weights.forEach((w, idx) => {
+        if (bits[idx] === 1) sum += w;
+        const sw = document.createElement('button');
+        sw.className = `bit-switch-card ${bits[idx] === 1 ? 'bit-on' : 'bit-off'}`;
+        sw.innerHTML = `
+          <div class="bit-weight">位權 ${w}</div>
+          <div class="bit-bulb">${bits[idx] === 1 ? '💡' : '⚫'}</div>
+          <div class="bit-val">${bits[idx]}</div>
+        `;
+        sw.addEventListener('click', () => {
+          if (appState.isAnswered) return;
+          bits[idx] = bits[idx] === 1 ? 0 : 1;
+          updateBinaryView();
+        });
+        rowEl.appendChild(sw);
+      });
+      codeEl.textContent = bits.join('');
+      sumEl.textContent = sum;
+    }
+
+    updateBinaryView();
+
+    document.getElementById('btnSubmitBinary').addEventListener('click', () => {
+      if (appState.isAnswered) return;
+      let sum = 0;
+      weights.forEach((w, idx) => { if (bits[idx] === 1) sum += w; });
+      const isCorrect = sum === q.targetValue;
+      handleAnswerResult(isCorrect, q, `二進位 ${bits.join('')} (十進位 ${sum})`);
+    });
+
+    appendHintBar(area, q);
+    return;
+  }
+
+  // 5. 傳統填空 fallback 或一般 4 選 1 選擇題 (choice / cloze with options)
   if (!q.options || q.options.length === 0) {
     const wrapper = document.createElement('div');
     wrapper.className = 'cloze-input-wrapper';
@@ -591,33 +845,18 @@ function renderInteractiveInput(q) {
         <input type="text" id="clozeInput" class="game-input" placeholder="請在此輸入答案" autocomplete="off" autofocus />
         <button id="btnSubmitCloze" class="primary-btn">確認送出</button>
       </div>
-      <div class="hint-action-bar">
-        <button id="btnUseHint" class="hint-btn">💡 呼叫特工錦囊 (查看提示・本題得分減半)</button>
-        <button id="btnGiveUp" class="give-up-btn hidden" onclick="giveUpCurrentQuestion()">⏭️ 我還是想不出來（查看正確解答並前進下一題）</button>
-      </div>
     `;
     area.appendChild(wrapper);
 
     const input = document.getElementById('clozeInput');
-    const submitBtn = document.getElementById('btnSubmitCloze');
-    const hintBtn = document.getElementById('btnUseHint');
-
-    submitBtn.addEventListener('click', () => checkClozeAnswer(q, input.value));
-    
+    document.getElementById('btnSubmitCloze').addEventListener('click', () => checkClozeAnswer(q, input.value));
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         checkClozeAnswer(q, input.value);
       }
     });
-
-    hintBtn.addEventListener('click', () => {
-      appState.usedHintForCurrentQ = true;
-      const isChallenge = appState.activeQuestionIdx >= 10;
-      showQuestionHint(q.hint, isChallenge ? 4 : 3);
-      document.getElementById('btnGiveUp').classList.remove('hidden');
-    });
-
+    appendHintBar(area, q);
   } else {
     const optionsGrid = document.createElement('div');
     optionsGrid.className = 'options-grid';
@@ -634,23 +873,7 @@ function renderInteractiveInput(q) {
     });
 
     area.appendChild(optionsGrid);
-
-    const isChallenge = appState.activeQuestionIdx >= 10;
-    const halfPts = isChallenge ? 4 : 3;
-
-    const hintBar = document.createElement('div');
-    hintBar.className = 'hint-action-bar mt-3';
-    hintBar.innerHTML = `
-      <button id="btnUseHint" class="hint-btn">💡 呼叫特工錦囊 (查看提示・本題得分減半得 ${halfPts} 分)</button>
-      <button id="btnGiveUp" class="give-up-btn hidden" onclick="giveUpCurrentQuestion()">⏭️ 我還是想不出來（查看正確解答並前進下一題）</button>
-    `;
-    area.appendChild(hintBar);
-
-    document.getElementById('btnUseHint').addEventListener('click', () => {
-      appState.usedHintForCurrentQ = true;
-      showQuestionHint(q.hint, halfPts);
-      document.getElementById('btnGiveUp').classList.remove('hidden');
-    });
+    appendHintBar(area, q);
   }
 }
 
@@ -1659,11 +1882,11 @@ window.exportScoresCSV = function() {
 };
 
 // =========================================================================
-// Google Docs 5 題生活簡答學習單 Modal 控制
+// 多元雲端應用程式實務作業 Modal 控制 (Docs / Sheets / Slides / Forms / Gemini / 心智圖)
 // =========================================================================
 window.openWorksheetModal = function(unitIdx) {
   if (typeof WORKSHEET_DATA === 'undefined') {
-    alert('學習單題庫正在載入中，請稍候！');
+    alert('實作作業任務包正在載入中，請稍候！');
     return;
   }
   appState.activeWorksheetUnitIdx = unitIdx || 0;
@@ -1677,6 +1900,19 @@ window.openWorksheetModal = function(unitIdx) {
 window.closeWorksheetModal = function() {
   const modal = document.getElementById('worksheetModal');
   if (modal) modal.classList.add('hidden');
+};
+
+window.copySheetsPracticeTable = function(unitIdx, taskIdx) {
+  const ws = WORKSHEET_DATA[unitIdx];
+  if (!ws || !ws.tasks || !ws.tasks[taskIdx] || !ws.tasks[taskIdx].sheetsSampleCsv) return;
+  const csvStr = ws.tasks[taskIdx].sheetsSampleCsv;
+  // 將逗號分隔轉換為 Tab (\t) 分隔，直接貼進 Google 試算表時會自動完美對齊展開成各儲存格！
+  const tsvStr = csvStr.split('\n').map(line => line.split(',').join('\t')).join('\n');
+  navigator.clipboard.writeText(tsvStr).then(() => {
+    alert('✅ 已將試算表原始練習數據複製到剪貼簿！\n請打開 Google 試算表點選 A1 儲存格並按 Ctrl+V，表格就會自動整齊對齊展開！\n存成範本後即可在 Classroom 勾選「為每位學生建立副本」派發！');
+  }).catch(() => {
+    prompt('請手動複製以下表格資料貼進 Google Sheets：', tsvStr);
+  });
 };
 
 function renderWorksheetModalContent() {
@@ -1704,92 +1940,104 @@ function renderWorksheetModalContent() {
   const contentArea = document.getElementById('modalWorksheetContent');
   if (!contentArea) return;
 
-  contentArea.innerHTML = '';
-  ws.questions.forEach(q => {
-    const card = document.createElement('div');
-    card.className = 'ws-question-card';
-    card.innerHTML = `
-      <div class="ws-q-header" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-        <span class="ws-q-badge" style="background:#2563eb;color:#fff;font-weight:700;padding:3px 10px;border-radius:6px;">第 ${q.qNum} 題</span>
-        <span class="ws-score-tag" style="background:rgba(234, 179, 8, 0.2);color:#facc15;border:1px solid #eab308;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:700;">⭐ 配分：${escapeHtml(q.score || '20分 (滿分100分)')}</span>
-        <span class="ws-bloom-tag" style="background:rgba(16, 185, 129, 0.2);color:#34d399;border:1px solid #10b981;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:600;"><i class="fa-solid fa-book-open"></i> ${escapeHtml(q.bookPage || '')}</span>
-        <span class="ws-tool-tag" style="background:rgba(56, 189, 248, 0.15);color:#38bdf8;border:1px solid #0284c7;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:600;"><i class="fa-solid fa-screwdriver-wrench"></i> ${escapeHtml(q.tool || '')}</span>
-      </div>
-      <div style="font-size:1.1rem;font-weight:700;color:var(--text-bright);margin-bottom:8px;">${escapeHtml(q.title)}</div>
-      
-      <div class="ws-scenario-box" style="margin-top:6px;background:rgba(56, 189, 248, 0.08);padding:10px 14px;border-left:4px solid var(--cyan-glow);border-radius:4px;font-size:0.92rem;line-height:1.6;">
-        <strong>📌 課堂實作情境：</strong> ${escapeHtml(q.scenario)}
-      </div>
+  const appsBadges = (ws.appsUsed || []).map(a => `<span style="background:rgba(56,189,248,0.18);color:#38bdf8;border:1px solid #0284c7;padding:3px 10px;border-radius:14px;font-size:0.82rem;font-weight:700;">${escapeHtml(a)}</span>`).join(' ');
 
-      <div class="ws-prompt-box" style="margin-top:10px;background:rgba(245, 158, 11, 0.08);padding:12px 14px;border-left:4px solid var(--amber-glow);border-radius:4px;font-size:0.92rem;line-height:1.7;">
-        <strong>🎯 實作操作指引與具體任務：</strong><br>
-        ${escapeHtml(q.taskSteps).replace(/\n/g, '<br>')}
+  let html = `
+    <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.4);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+        <strong style="color:#34d399;">🛠️ 本單元實務採用軟體：</strong> ${appsBadges}
       </div>
-
-      <div style="margin-top:10px;background:rgba(168, 85, 247, 0.08);padding:12px 14px;border-left:4px solid #a855f7;border-radius:4px;font-size:0.92rem;line-height:1.6;">
-        <strong>🔍 最終截圖要求（老師批改一眼判定標準）：</strong><br>
-        <span style="color:#c084fc;">👉 ${escapeHtml(q.screenshotTarget)}</span>
+      <div style="font-size:0.9rem;margin-bottom:4px;color:var(--text-main);">
+        <strong>🎓 Classroom 派發模式：</strong> ${escapeHtml(ws.classroomMode || '')}
       </div>
-
-      <div class="ws-paste-preview-box" style="margin-top:12px;border:2px dashed rgba(56, 189, 248, 0.4);border-radius:8px;padding:20px;text-align:center;background:rgba(15, 23, 42, 0.4);color:#94a3b8;">
-        <i class="fa-solid fa-camera" style="font-size:1.6rem;color:var(--cyan-glow);margin-bottom:6px;display:block;"></i>
-        <strong style="color:var(--cyan-glow);">【第 ${q.qNum} 題 學生實作操作截圖貼上區】</strong><br>
-        <span style="font-size:0.85rem;">（在 Google 文件中於此框內按下 Ctrl + V 貼上螢幕截圖，佔評分 100%）</span>
+      <div style="font-size:0.9rem;color:#fbbf24;">
+        <strong>📤 學生繳交成果形式：</strong> ${escapeHtml(ws.submissionFormat || '')}
       </div>
+    </div>
+  `;
 
-      <div class="ws-answer-box" style="margin-top:12px;">
-        <details>
-          <summary style="cursor:pointer;font-weight:600;color:var(--cyan-glow);padding:6px 0;"><i class="fa-solid fa-graduation-cap"></i> 點擊展開 教師評分檢核點（滿分 20 分）</summary>
-          <div class="ws-sample-answer-text" style="margin-top:8px;padding:12px;background:rgba(15, 23, 42, 0.6);border-radius:6px;font-size:0.88rem;line-height:1.7;color:var(--text-main);">
-            ${escapeHtml(q.gradingChecklist).replace(/\n/g, '<br>')}
-          </div>
-        </details>
+  const items = ws.tasks || ws.questions || [];
+  items.forEach((t, tIdx) => {
+    const num = t.tNum || t.qNum || (tIdx + 1);
+    const appLabel = t.app || t.tool || '雲端實作';
+    const stepsText = t.steps || t.taskSteps || '';
+    const rubricText = t.rubric || t.gradingChecklist || '';
+    const csvBlock = t.sheetsSampleCsv ? `
+      <div style="margin-top:12px;background:rgba(15,23,42,0.75);border:1px solid #38bdf8;border-radius:8px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+          <strong style="color:#38bdf8;"><i class="fa-solid fa-table"></i> 試算表範本原始練習數據（點擊一鍵複製貼至 Google Sheets A1）</strong>
+          <button class="primary-btn" style="padding:5px 12px;font-size:0.82rem;" onclick="copySheetsPracticeTable(${unitIdx}, ${tIdx})">
+            📊 一鍵複製試算表練習資料
+          </button>
+        </div>
+        <pre style="margin:0;font-size:0.8rem;color:#cbd5e1;overflow-x:auto;white-space:pre-wrap;background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;">${escapeHtml(t.sheetsSampleCsv)}</pre>
+      </div>
+    ` : '';
+
+    html += `
+      <div class="ws-question-card">
+        <div class="ws-q-header" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <span class="ws-q-badge" style="background:#2563eb;color:#fff;font-weight:700;padding:3px 10px;border-radius:6px;">任務 ${num}</span>
+          <span class="ws-score-tag" style="background:rgba(234, 179, 8, 0.2);color:#facc15;border:1px solid #eab308;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:700;">⭐ 配分：${escapeHtml(t.score || '滿分100分')}</span>
+          <span class="ws-bloom-tag" style="background:rgba(16, 185, 129, 0.2);color:#34d399;border:1px solid #10b981;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:600;"><i class="fa-solid fa-book-open"></i> ${escapeHtml(t.bookPage || '')}</span>
+          <span class="ws-tool-tag" style="background:rgba(168, 85, 247, 0.2);color:#c084fc;border:1px solid #a855f7;font-size:0.8rem;padding:3px 10px;border-radius:12px;font-weight:700;">${escapeHtml(appLabel)}</span>
+        </div>
+        <div style="font-size:1.12rem;font-weight:700;color:var(--text-bright);margin-bottom:8px;">${escapeHtml(t.title)}</div>
+
+        <div class="ws-scenario-box" style="margin-top:6px;background:rgba(56, 189, 248, 0.08);padding:10px 14px;border-left:4px solid var(--cyan-glow);border-radius:4px;font-size:0.92rem;line-height:1.6;">
+          <strong>📌 生活實務情境：</strong> ${escapeHtml(t.scenario)}
+        </div>
+
+        <div class="ws-prompt-box" style="margin-top:10px;background:rgba(245, 158, 11, 0.08);padding:12px 14px;border-left:4px solid var(--amber-glow);border-radius:4px;font-size:0.92rem;line-height:1.7;">
+          <strong>🛠️ 具體操作步驟與繳交要求：</strong><br>
+          ${escapeHtml(stepsText).replace(/\n/g, '<br>')}
+        </div>
+
+        ${csvBlock}
+
+        <div class="ws-answer-box" style="margin-top:12px;">
+          <details open>
+            <summary style="cursor:pointer;font-weight:600;color:var(--cyan-glow);padding:4px 0;"><i class="fa-solid fa-graduation-cap"></i> 教師批改檢核規準（${escapeHtml(t.score || '')}）</summary>
+            <div class="ws-sample-answer-text" style="margin-top:6px;padding:10px 12px;background:rgba(15, 23, 42, 0.6);border-radius:6px;font-size:0.88rem;line-height:1.7;color:var(--text-main);">
+              ${escapeHtml(rubricText).replace(/\n/g, '<br>')}
+            </div>
+          </details>
+        </div>
       </div>
     `;
-    contentArea.appendChild(card);
   });
+
+  contentArea.innerHTML = html;
 }
 
 window.copyCurrentWorksheet = function() {
   const ws = WORKSHEET_DATA[appState.activeWorksheetUnitIdx];
   if (!ws) return;
 
-  let text = `【115資訊科技】課堂探究與課本實踐學習單（Google Docs / Classroom 副本專用）\n`;
-  text += `單元名稱：${ws.unitTitle}\n`;
-  text += `課程進度：${ws.textbookRef || ''}\n`;
-  text += `評分標準：本單元共 5 題，每題 20 分，滿分 100 分\n`;
-  text += `學生資料：班級：_______ 班    座號：_______ 號    姓名：_______________    學號：_______________    總分：_______ / 100\n\n`;
-  text += `============================================================\n`;
-  text += `【學生作答指引】\n`;
-  text += `1. 請開啟 Chrome 瀏覽器，依照每題「實作操作步驟」實際操作相應工具。\n`;
-  text += `2. 操作完成後，按下螢幕截圖（鍵盤 Win + Shift + S 或 PrtScn）。\n`;
-  text += `3. 直接在指定的【📸 截圖貼上區】按下 Ctrl + V 貼上您的最終成果截圖。\n`;
-  text += `4. 全部 5 題完成後，直接在 Google Classroom 點擊「繳交」！\n`;
+  let text = `【115資訊科技】${ws.unitTitle} — 生活實務作業任務\n`;
+  text += `📖 課本對應範圍：${ws.textbookRef || ''}\n`;
+  text += `🛠️ 本單元使用軟體：${(ws.appsUsed || []).join(' / ')}\n`;
+  text += `🎓 Classroom 派發建議：${ws.classroomMode || ''}\n`;
+  text += `📤 學生繳交方式：${ws.submissionFormat || ''}\n`;
   text += `============================================================\n\n`;
-  text += `------------------------------------------------------------\n\n`;
 
-  ws.questions.forEach(q => {
-    text += `【第 ${q.qNum} 題】${q.title}（配分：20 分）\n`;
-    text += `- 📖 課本依據：${q.bookPage}\n`;
-    text += `- 🛠️ 使用工具：${q.tool}\n`;
-    text += `- 📌 情境說明：${q.scenario}\n\n`;
-    text += `🎯 實作操作指引與具體任務：\n`;
-    text += `${q.taskSteps}\n\n`;
-    text += `🔍 最終截圖要求（老師批改一眼判定標準）：\n`;
-    text += `👉 ${q.screenshotTarget}\n\n`;
-    text += `+------------------------------------------------------------------+\n`;
-    text += `|               📸 【第 ${q.qNum} 題 學生實作操作截圖貼上區】                |\n`;
-    text += `|                                                                  |\n`;
-    text += `|       [ 請在此框內按下鍵盤 Ctrl + V 貼上您的最終操作成果截圖 ]    |\n`;
-    text += `|                                                                  |\n`;
-    text += `+------------------------------------------------------------------+\n\n`;
-    text += `✅ 教師評分檢核點（滿分 20 分）：\n`;
-    text += `${q.gradingChecklist}\n\n`;
-    text += `------------------------------------------------------------\n\n`;
+  const items = ws.tasks || ws.questions || [];
+  items.forEach((t, idx) => {
+    const num = t.tNum || t.qNum || (idx + 1);
+    text += `【任務 ${num}】${t.title}（配分：${t.score}）\n`;
+    text += `- 使用應用程式：${t.app || t.tool}\n`;
+    text += `- 課本依據：${t.bookPage}\n`;
+    text += `- 生活情境：${t.scenario}\n`;
+    text += `\n🛠️ 具體實作步驟：\n${t.steps || t.taskSteps}\n`;
+    if (t.sheetsSampleCsv) {
+      text += `\n📊 試算表範本練習資料 (CSV)：\n${t.sheetsSampleCsv}\n`;
+    }
+    text += `\n✅ 評分檢核標準：\n${t.rubric || t.gradingChecklist}\n`;
+    text += `\n------------------------------------------------------------\n\n`;
   });
 
   navigator.clipboard.writeText(text).then(() => {
-    alert(`✅ 已成功複製《${ws.unitTitle}》Google Docs 學習單！\n每題 20 分（滿分 100 分），已為 Google Classroom「建立副本」格式最佳化。\n您可直接前往 Google 文件貼上 (Ctrl+V) 派發！`);
+    alert(`✅ 已成功複製《${ws.unitTitle}》多元應用程式實作作業說明！\n您可以直接貼入 Google Classroom「建立作業」說明欄，搭配對應的 Docs / Sheets / Slides 範本勾選「為每位學生建立副本」派發！`);
   }).catch(() => {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -1797,7 +2045,7 @@ window.copyCurrentWorksheet = function() {
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    alert(`✅ 已複製至剪貼簿！可直接貼入 Google Docs / Classroom。`);
+    alert(`✅ 已複製作業說明至剪貼簿！`);
   });
 };
 
