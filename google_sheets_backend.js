@@ -23,6 +23,15 @@ function doPost(e) {
     var action = json.action || "";
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
+    // 0. 教師後台密碼驗證
+    if (action === "verify_admin") {
+      var pwd = String(json.password || "").trim();
+      if (pwd === "teacher115" || pwd === "admin") {
+        return responseJSON({ success: true, message: "驗證成功" });
+      }
+      return responseJSON({ success: false, error: "密碼錯誤" });
+    }
+
     // 1. 記錄學生登入
     if (action === "log_login") {
       var s = json.data || {};

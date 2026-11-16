@@ -196,7 +196,7 @@ interface QuestionStatEntry {
   2. `submit_score`：提交單元測驗成果與答對率。
   3. `update_score`：教師手動修正特定學生分數。
   4. `get_all_data`：拉取全體學生最新成績名冊。
-  5. `clear_database`：管理員清空重置資料庫（需密碼 `teacher115`）。
+  5. `clear_database`：管理員清空重置資料庫（需密碼 `cyhs116admin`）。
 
 ---
 

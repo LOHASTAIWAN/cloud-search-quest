@@ -59,7 +59,7 @@ function startQuestionTimer(durationSec = 30) {
     if (left <= 0) {
       stopQuestionTimer();
       const unit = QUEST_DATA.units[appState.activeUnitIdx];
-      const q = unit.questions[appState.activeQuestionIdx];
+      const q = (appState.activeQuestions && appState.activeQuestions[appState.activeQuestionIdx]) || unit.questions[appState.activeQuestionIdx];
       handleQuestionTimeout(q);
     }
   }, 1000);
@@ -141,6 +141,7 @@ const appState = {
   // 測驗關卡中狀態
   activeUnitIdx: 0,
   activeQuestionIdx: 0,
+  activeQuestions: [], // 該次測驗隨機洗牌後的題目與選項序列
   hp: 100,
   xp: 0,
   combo: 0,
@@ -456,12 +457,17 @@ function initUnitLobby() {
     const card = document.createElement('div');
     card.className = 'unit-card';
     
-    // 檢查該學生在該單元的歷史最佳成績
+    // 檢查該學生在該單元的歷史最佳成績與闖關次數
     let bestScore = '--';
+    let attemptsCount = 0;
     if (appState.currentStudent) {
       const sId = appState.currentStudent.studentId;
-      if (appState.studentScores[sId] && appState.studentScores[sId].unitScores && appState.studentScores[sId].unitScores[unit.unitId] !== undefined) {
-        bestScore = appState.studentScores[sId].unitScores[unit.unitId] + ' 分';
+      const st = appState.studentScores[sId];
+      if (st && st.unitScores && st.unitScores[unit.unitId] !== undefined) {
+        bestScore = st.unitScores[unit.unitId] + ' 分';
+      }
+      if (st && st.unitAttempts && st.unitAttempts[unit.unitId]) {
+        attemptsCount = st.unitAttempts[unit.unitId];
       }
     }
 
@@ -473,8 +479,8 @@ function initUnitLobby() {
       <h3 class="unit-title">${unit.unitTitle}</h3>
       <p class="unit-desc">${unit.description}</p>
       <div class="unit-meta">
-        <span>🎯 題目：${unit.questions.length} 題 (前10題基礎滿分100 + 後5題加分挑戰)</span>
-        <span class="unit-score-badge">最佳成績：<strong>${bestScore}</strong></span>
+        <span>🎯 題目：${unit.questions.length} 題 (前10題基礎60分 + 後5題挑戰40分)</span>
+        <span class="unit-score-badge">最佳成績：<strong>${bestScore}</strong>${attemptsCount > 0 ? ` <small>(已闖關 ${attemptsCount} 次)</small>` : ''}</span>
       </div>
       <div class="unit-card-actions">
         <button class="start-unit-btn" onclick="startQuestUnit(${idx})">
@@ -489,9 +495,20 @@ function initUnitLobby() {
   });
 }
 
-// 開始進行特定單元測驗
+// 開始進行特定單元測驗（防作弊機制：每次進入/重考均對題目順序與選項進行雙重隨機洗牌）
 window.startQuestUnit = function(unitIdx) {
   sound.init();
+  const unit = QUEST_DATA.units[unitIdx];
+  const rawQuestions = unit ? unit.questions : [];
+
+  // 分層洗牌：前 10 題基礎題(60分) 亂序洗牌 + 後 5 題挑戰題(40分) 亂序洗牌
+  const basePool = shuffleArray(rawQuestions.slice(0, 10));
+  const challengePool = shuffleArray(rawQuestions.slice(10));
+  appState.activeQuestions = [...basePool, ...challengePool].map(q => ({
+    ...q,
+    options: q.options ? shuffleArray(q.options) : q.options
+  }));
+
   appState.activeUnitIdx = unitIdx;
   appState.activeQuestionIdx = 0;
   appState.hp = 100;
@@ -513,8 +530,9 @@ function renderCurrentQuestion() {
   appState.usedHintForCurrentQ = false;
 
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
-  const q = unit.questions[appState.activeQuestionIdx];
-  const totalQ = unit.questions.length;
+  const questionsList = (appState.activeQuestions && appState.activeQuestions.length > 0) ? appState.activeQuestions : unit.questions;
+  const q = questionsList[appState.activeQuestionIdx];
+  const totalQ = questionsList.length;
   const isChallenge = appState.activeQuestionIdx >= 10;
   const maxPts = isChallenge ? 8 : 6;
   const halfPts = isChallenge ? 4 : 3;
@@ -532,10 +550,10 @@ function renderCurrentQuestion() {
   const qContainer = document.getElementById('questionContainer');
   qContainer.innerHTML = `
     <div class="question-tag-row">
-      <span class="q-type-badge">${q.type === 'cloze' ? '克漏字填空題' : '選擇實戰題'}</span>
+      <span class="q-type-badge">${q.type === 'cloze' ? '克漏字實戰題' : '選擇實戰題'}</span>
       <span class="q-points-badge">${isChallenge ? '+8 分 (挑戰題・全單元滿分40)' : '+6 分 (基礎題・全單元滿分60)'}</span>
       <span class="q-level-badge">難度：${q.level}</span>
-      <span style="font-size:0.75rem;color:var(--text-muted);margin-left:auto;">(限時 30 秒・看提示得 ${halfPts} 分)</span>
+      <span style="font-size:0.75rem;color:var(--text-muted);margin-left:auto;">(限時 30 秒・看提示得 ${halfPts} 分・題序選項已隨機)</span>
     </div>
     <div class="scenario-box">
       <div class="scenario-title">📌 生活與課本情境：</div>
@@ -565,16 +583,16 @@ function renderInteractiveInput(q) {
   const area = document.getElementById('answerArea');
   area.innerHTML = '';
 
-  if (q.type === 'cloze' || !q.options || q.options.length === 0) {
+  if (!q.options || q.options.length === 0) {
     const wrapper = document.createElement('div');
     wrapper.className = 'cloze-input-wrapper';
     wrapper.innerHTML = `
       <div class="input-action-bar">
-        <input type="text" id="clozeInput" class="game-input" placeholder="請在此輸入答案（或可直接按下鍵盤快捷鍵）" autocomplete="off" autofocus />
+        <input type="text" id="clozeInput" class="game-input" placeholder="請在此輸入答案" autocomplete="off" autofocus />
         <button id="btnSubmitCloze" class="primary-btn">確認送出</button>
       </div>
       <div class="hint-action-bar">
-        <button id="btnUseHint" class="hint-btn">💡 呼叫特工錦囊 (查看提示)</button>
+        <button id="btnUseHint" class="hint-btn">💡 呼叫特工錦囊 (查看提示・本題得分減半)</button>
         <button id="btnGiveUp" class="give-up-btn hidden" onclick="giveUpCurrentQuestion()">⏭️ 我還是想不出來（查看正確解答並前進下一題）</button>
       </div>
     `;
@@ -586,7 +604,6 @@ function renderInteractiveInput(q) {
 
     submitBtn.addEventListener('click', () => checkClozeAnswer(q, input.value));
     
-    // 安全鍵盤監聽 (僅支援 Enter 快速送出，絕不攔截實體快捷鍵避免瀏覽器衝突)
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -595,7 +612,9 @@ function renderInteractiveInput(q) {
     });
 
     hintBtn.addEventListener('click', () => {
-      showQuestionHint(q.hint);
+      appState.usedHintForCurrentQ = true;
+      const isChallenge = appState.activeQuestionIdx >= 10;
+      showQuestionHint(q.hint, isChallenge ? 4 : 3);
       document.getElementById('btnGiveUp').classList.remove('hidden');
     });
 
@@ -603,7 +622,7 @@ function renderInteractiveInput(q) {
     const optionsGrid = document.createElement('div');
     optionsGrid.className = 'options-grid';
 
-    // 隨機打亂選項順序，保證正確答案隨機落在 A/B/C/D
+    // 再次隨機洗牌選項，確保正確答案隨機落在 A/B/C/D
     const shuffledOptions = shuffleArray(q.options);
 
     shuffledOptions.forEach((opt, idx) => {
@@ -757,11 +776,12 @@ window.giveUpCurrentQuestion = function() {
   appState.isAnswered = true;
   
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
-  const q = unit.questions[appState.activeQuestionIdx];
+  const questionsList = (appState.activeQuestions && appState.activeQuestions.length > 0) ? appState.activeQuestions : unit.questions;
+  const q = questionsList[appState.activeQuestionIdx];
 
   recordQuestionAttempt(q.qId, false);
   appState.combo = 0;
-  appState.currentUnitResults.push({ qId: q.qId, correct: false, score: 0 });
+  appState.currentUnitResults.push({ qId: q.qId, correct: false, score: 0, usedHint: appState.usedHintForCurrentQ, timeout: false });
 
   const feedbackArea = document.getElementById('feedbackArea');
   feedbackArea.classList.remove('hidden');
@@ -786,7 +806,8 @@ window.giveUpCurrentQuestion = function() {
 window.proceedToNextQuestion = function() {
   stopQuestionTimer();
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
-  if (appState.activeQuestionIdx + 1 < unit.questions.length) {
+  const totalQ = (appState.activeQuestions && appState.activeQuestions.length > 0) ? appState.activeQuestions.length : unit.questions.length;
+  if (appState.activeQuestionIdx + 1 < totalQ) {
     appState.activeQuestionIdx++;
     renderCurrentQuestion();
   } else {
@@ -794,10 +815,10 @@ window.proceedToNextQuestion = function() {
   }
 };
 
-// 結算單元成績並自動寫入資料庫
+// 結算單元成績並自動寫入資料庫（包含闖關次數、每次得分與作答時間）
 function concludeUnitQuest() {
   const unit = QUEST_DATA.units[appState.activeUnitIdx];
-  const totalQuestions = unit.questions.length;
+  const totalQuestions = (appState.activeQuestions && appState.activeQuestions.length > 0) ? appState.activeQuestions.length : unit.questions.length;
   
   let baseScore = 0;
   let challengeScore = 0;
@@ -824,6 +845,8 @@ function concludeUnitQuest() {
 
   const finalTotalScore = baseScore + challengeScore;
   const timeSpentSec = Math.round((Date.now() - appState.unitStartTime) / 1000);
+  const completedTimeStr = new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
+  let attemptNumber = 1;
 
   if (appState.currentStudent) {
     const s = appState.currentStudent;
@@ -834,17 +857,37 @@ function concludeUnitQuest() {
         seat: s.seat,
         studentId: s.studentId,
         unitScores: {},
+        unitAttempts: {},
+        unitLastTime: {},
+        unitHistory: {},
         lastUpdated: Date.now()
       };
     }
-    const prevScore = appState.studentScores[s.studentId].unitScores[unit.unitId] || 0;
-    if (finalTotalScore >= prevScore) {
-      appState.studentScores[s.studentId].unitScores[unit.unitId] = finalTotalScore;
-      appState.studentScores[s.studentId].lastUpdated = Date.now();
+    const rec = appState.studentScores[s.studentId];
+    if (!rec.unitScores) rec.unitScores = {};
+    if (!rec.unitAttempts) rec.unitAttempts = {};
+    if (!rec.unitLastTime) rec.unitLastTime = {};
+    if (!rec.unitHistory) rec.unitHistory = {};
+
+    attemptNumber = (rec.unitAttempts[unit.unitId] || 0) + 1;
+    rec.unitAttempts[unit.unitId] = attemptNumber;
+    rec.unitLastTime[unit.unitId] = completedTimeStr;
+    if (!Array.isArray(rec.unitHistory[unit.unitId])) rec.unitHistory[unit.unitId] = [];
+    rec.unitHistory[unit.unitId].push({
+      attempt: attemptNumber,
+      score: finalTotalScore,
+      time: completedTimeStr,
+      timestamp: Date.now()
+    });
+
+    const prevScore = rec.unitScores[unit.unitId] || 0;
+    if (finalTotalScore >= prevScore || rec.unitScores[unit.unitId] === undefined) {
+      rec.unitScores[unit.unitId] = finalTotalScore;
     }
+    rec.lastUpdated = Date.now();
     persistRecords();
 
-    // 即時推播更新至後台資料庫
+    // 即時推播更新至後台資料庫（含次數、得分與作答時間）
     syncToCloudflare('submit_score', {
       student: s,
       unitId: unit.unitId,
@@ -852,6 +895,8 @@ function concludeUnitQuest() {
       baseScore: baseScore,
       challengeScore: challengeScore,
       finalScore: finalTotalScore,
+      attemptNumber: attemptNumber,
+      completedTime: completedTimeStr,
       correctCount: correctCount,
       totalQuestions: totalQuestions,
       timeSpentSec: timeSpentSec,
@@ -868,7 +913,9 @@ function concludeUnitQuest() {
     correctCount: correctCount,
     totalQuestions: totalQuestions,
     maxCombo: appState.maxCombo,
-    timeSpentSec: timeSpentSec
+    timeSpentSec: timeSpentSec,
+    attemptNumber: attemptNumber,
+    completedTimeStr: completedTimeStr
   });
 }
 
@@ -932,6 +979,9 @@ function renderResultScreen(res) {
         <span>基礎核心成績：<strong>${res.baseScore} / 60 分</strong></span>
         <span>進階挑戰成績：<strong>${res.challengeScore} / 40 分</strong></span>
         <span>總分滿分：<strong>100 分</strong></span>
+      </div>
+      <div style="margin-top:8px;font-size:0.88rem;color:var(--text-muted);">
+        📊 這是您本單元的 <strong>第 ${res.attemptNumber || 1} 次</strong> 闖關測驗 ｜ 🕒 完成時間：${escapeHtml(res.completedTimeStr || '')}
       </div>
       <div class="result-evaluation-tag">${evaluation}</div>
     </div>
@@ -1067,21 +1117,52 @@ async function silentPullCloudData() {
   }
 }
 
-// 合併雲端學生成績
+// 合併雲端學生成績（包含最高分、闖關次數、時間與歷次紀錄）
 function mergeStudentScores(cloudScores) {
   Object.keys(cloudScores).forEach(sId => {
     const cStudent = cloudScores[sId];
     if (!appState.studentScores[sId]) {
       appState.studentScores[sId] = cStudent;
     } else {
-      // 合併各單元成績 (取較高分)
-      const localUnitScores = appState.studentScores[sId].unitScores || {};
+      const lStudent = appState.studentScores[sId];
+      // 1. 合併各單元最高成績
+      const localUnitScores = lStudent.unitScores || {};
       const cloudUnitScores = cStudent.unitScores || {};
       const allUnits = new Set([...Object.keys(localUnitScores), ...Object.keys(cloudUnitScores)]);
       allUnits.forEach(uId => {
         localUnitScores[uId] = Math.max(localUnitScores[uId] || 0, cloudUnitScores[uId] || 0);
       });
-      appState.studentScores[sId].unitScores = localUnitScores;
+      lStudent.unitScores = localUnitScores;
+
+      // 2. 合併闖關次數
+      const localAttempts = lStudent.unitAttempts || {};
+      const cloudAttempts = cStudent.unitAttempts || {};
+      const allAttUnits = new Set([...Object.keys(localAttempts), ...Object.keys(cloudAttempts)]);
+      allAttUnits.forEach(uId => {
+        localAttempts[uId] = Math.max(localAttempts[uId] || 0, cloudAttempts[uId] || 0);
+      });
+      lStudent.unitAttempts = localAttempts;
+
+      // 3. 合併最後作答時間與歷次紀錄
+      const localLast = lStudent.unitLastTime || {};
+      const cloudLast = cStudent.unitLastTime || {};
+      lStudent.unitLastTime = { ...localLast, ...cloudLast };
+
+      const localHist = lStudent.unitHistory || {};
+      const cloudHist = cStudent.unitHistory || {};
+      const allHistUnits = new Set([...Object.keys(localHist), ...Object.keys(cloudHist)]);
+      allHistUnits.forEach(uId => {
+        const lArr = Array.isArray(localHist[uId]) ? localHist[uId] : [];
+        const cArr = Array.isArray(cloudHist[uId]) ? cloudHist[uId] : [];
+        // 合併並以 timestamp 去重
+        const mergedMap = new Map();
+        [...lArr, ...cArr].forEach(item => {
+          const key = `${item.attempt}_${item.timestamp || item.time}`;
+          mergedMap.set(key, item);
+        });
+        localHist[uId] = Array.from(mergedMap.values()).sort((a, b) => (a.attempt || 0) - (b.attempt || 0));
+      });
+      lStudent.unitHistory = localHist;
     }
   });
   persistRecords();
@@ -1213,14 +1294,42 @@ window.copyShareableClassUrl = function() {
 // =========================================================================
 // 教師後台管理 (查詢、篩選、手動更新、匯出匯入)
 // =========================================================================
-function openTeacherAuthModal() {
+async function openTeacherAuthModal() {
   const pwd = prompt('請輸入教師管理後台密碼：');
-  if (pwd === 'teacher115' || pwd === 'admin') {
+  if (pwd === null) return;
+  const trimmed = pwd.trim();
+  if (!trimmed) {
+    alert('請輸入密碼！');
+    return;
+  }
+  if (appState.cfWorkerUrl) {
+    try {
+      const res = await fetch(appState.cfWorkerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'verify_admin', password: trimmed })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        showScreen('adminScreen');
+        renderTeacherDashboard();
+        return;
+      }
+      if (res.status === 401) {
+        alert('密碼錯誤！');
+        return;
+      }
+    } catch (e) {
+      console.warn('雲端密碼驗證連線失敗，採用離線驗證:', e);
+    }
+  }
+  // 本機備援驗證 (確保無網路時仍可管理)
+  if (trimmed === 'teacher115' || trimmed === 'admin') {
     showScreen('adminScreen');
     renderTeacherDashboard();
-  } else if (pwd !== null) {
-    alert('密碼錯誤！');
+    return;
   }
+  alert('密碼錯誤！');
 }
 
 function renderTeacherDashboard(skipPing = false) {
@@ -1242,7 +1351,15 @@ function renderTeacherDashboard(skipPing = false) {
   if (!appState.cfWorkerUrl) {
     updateCloudStatusBadge(false);
   } else if (!skipPing) {
-    silentPullCloudData();
+    silentPullCloudData().then(ok => {
+      if (ok) {
+        document.getElementById('statTotalTested').textContent = `${Object.keys(appState.studentScores).length} / ${totalStudents} 人`;
+        document.getElementById('statTotalLogins').textContent = `${appState.loginLogs.length} 人次`;
+        filterAdminTable();
+        renderQuestionPassRateTable();
+        renderRecentLoginLogs();
+      }
+    });
   }
 }
 
@@ -1278,28 +1395,31 @@ window.filterAdminTable = function() {
   });
 
   if (students.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">無符合搜尋條件之學生紀錄</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted">無符合搜尋條件之學生紀錄</td></tr>';
     return;
   }
+
+  const unitIds = ['unit-1-1', 'unit-1-2', 'unit-1-3', 'unit-2-1', 'unit-2-2', 'unit-2-3', 'unit-2-4', 'unit-2-5'];
 
   students.forEach(st => {
     const tr = document.createElement('tr');
     const uScores = st.unitScores || {};
+    const uAttempts = st.unitAttempts || {};
+    const uLastTime = st.unitLastTime || {};
     const avg = calculateAverage(uScores);
     
+    const unitCells = unitIds.map(uId => `<td>${formatScore(uScores[uId], uAttempts[uId], uLastTime[uId])}</td>`).join('');
+
     tr.innerHTML = `
       <td>${escapeHtml(st.class)}</td>
       <td><strong>${st.seat}</strong></td>
       <td><strong>${escapeHtml(st.name)}</strong></td>
       <td><code>${escapeHtml(st.studentId)}</code></td>
-      <td>${formatScore(uScores['unit-1-1'])}</td>
-      <td>${formatScore(uScores['unit-1-2'])}</td>
-      <td>${formatScore(uScores['unit-1-3'])}</td>
-      <td>${formatScore(uScores['unit-2-1'])}</td>
+      ${unitCells}
       <td><span class="badge-score">${avg} 分</span></td>
       <td>
         <button class="edit-btn-sm" onclick="openEditScoreModal('${escapeHtml(st.studentId)}')">
-          <i class="fa-solid fa-pen-to-square"></i> 修改成績
+          <i class="fa-solid fa-pen-to-square"></i> 詳情/修改
         </button>
       </td>
     `;
@@ -1307,11 +1427,13 @@ window.filterAdminTable = function() {
   });
 };
 
-function formatScore(score) {
+function formatScore(score, attempts, lastTime) {
   if (score === undefined || score === null) return '<span class="text-muted">--</span>';
-  if (score >= 100) return `<span class="score-high"><strong>${score}分</strong></span>`;
-  if (score >= 60) return `<span class="score-pass">${score}分</span>`;
-  return `<span class="score-low">${score}分</span>`;
+  let cls = 'score-low';
+  if (score >= 90) cls = 'score-high';
+  else if (score >= 60) cls = 'score-pass';
+  const attBadge = attempts ? `<br><small style="color:#94a3b8;font-size:0.72rem;" title="最後完成時間：${escapeHtml(lastTime || '無')}">(${attempts}次${lastTime ? ' · ' + escapeHtml(lastTime.split(' ')[1] || lastTime) : ''})</small>` : '';
+  return `<span class="${cls}"><strong>${score}分</strong></span>${attBadge}`;
 }
 
 function calculateAverage(unitScores) {
@@ -1322,7 +1444,7 @@ function calculateAverage(unitScores) {
 }
 
 // -------------------------------------------------------------------------
-// 教師手動修改更新學生成績 (UPDATE)
+// 教師手動修改與檢視歷次闖關明細 (UPDATE / DETAILS)
 // -------------------------------------------------------------------------
 window.openEditScoreModal = function(studentId) {
   const student = appState.studentScores[studentId];
@@ -1332,7 +1454,7 @@ window.openEditScoreModal = function(studentId) {
   }
 
   document.getElementById('editModalStudentId').value = studentId;
-  document.getElementById('editModalStudentTitle').textContent = `修改成績：${student.class} ${student.seat}號 ${student.name} (${student.studentId})`;
+  document.getElementById('editModalStudentTitle').textContent = `成績與歷次闖關記錄：${student.class} ${student.seat}號 ${student.name} (${student.studentId})`;
 
   const grid = document.getElementById('editModalScoresGrid');
   grid.innerHTML = '';
@@ -1340,11 +1462,21 @@ window.openEditScoreModal = function(studentId) {
   const units = QUEST_DATA.units;
   units.forEach(u => {
     const curVal = student.unitScores && student.unitScores[u.unitId] !== undefined ? student.unitScores[u.unitId] : '';
+    const attempts = (student.unitAttempts && student.unitAttempts[u.unitId]) || 0;
+    const lastTime = (student.unitLastTime && student.unitLastTime[u.unitId]) || '尚未完成';
+    const histList = (student.unitHistory && Array.isArray(student.unitHistory[u.unitId])) ? student.unitHistory[u.unitId] : [];
+    const histHtml = histList.length > 0
+      ? `<div style="margin-top:6px;padding:6px 8px;background:rgba(15,23,42,0.5);border-radius:4px;font-size:0.78rem;color:#cbd5e1;max-height:90px;overflow-y:auto;">
+          ${histList.map(h => `<div>• 第 ${h.attempt} 次：<strong>${h.score} 分</strong> <span style="color:#94a3b8;">(${escapeHtml(h.time)})</span></div>`).join('')}
+         </div>`
+      : '';
+
     const item = document.createElement('div');
     item.className = 'edit-unit-field';
     item.innerHTML = `
-      <label>${escapeHtml(u.unitTitle)}</label>
+      <label>${escapeHtml(u.unitTitle)} <small style="color:#38bdf8;">(已闖關 ${attempts} 次｜最後：${escapeHtml(lastTime)})</small></label>
       <input type="number" id="edit_score_${u.unitId}" min="0" max="125" class="form-control" value="${curVal}" placeholder="未作答">
+      ${histHtml}
     `;
     grid.appendChild(item);
   });
@@ -1494,7 +1626,7 @@ window.handleImportJSON = function(event) {
   reader.readAsText(file);
 };
 
-// 匯出 CSV 報表
+// 匯出 CSV 報表（含分數、闖關次數與最後時間）
 window.exportScoresCSV = function() {
   const students = Object.values(appState.studentScores);
   if (students.length === 0) {
@@ -1502,11 +1634,20 @@ window.exportScoresCSV = function() {
     return;
   }
 
-  let csvContent = '\uFEFF班級,座號,姓名,學號,單元1-1,單元1-2,單元1-3,單元2-1,單元2-2,單元2-3,單元2-4,單元2-5,平均成績\n';
+  const unitIds = ['unit-1-1', 'unit-1-2', 'unit-1-3', 'unit-2-1', 'unit-2-2', 'unit-2-3', 'unit-2-4', 'unit-2-5'];
+  const unitHeaders = unitIds.map(id => {
+    const label = id.replace('unit-', '單元');
+    return `${label}分數,${label}次數,${label}時間`;
+  }).join(',');
+
+  let csvContent = `\uFEFF班級,座號,姓名,學號,${unitHeaders},平均成績\n`;
   students.forEach(s => {
     const u = s.unitScores || {};
+    const a = s.unitAttempts || {};
+    const t = s.unitLastTime || {};
     const avg = calculateAverage(u);
-    csvContent += `"${s.class}",${s.seat},"${s.name}","${s.studentId}",${u['unit-1-1']||0},${u['unit-1-2']||0},${u['unit-1-3']||0},${u['unit-2-1']||0},${u['unit-2-2']||0},${u['unit-2-3']||0},${u['unit-2-4']||0},${u['unit-2-5']||0},${avg}\n`;
+    const cols = unitIds.map(id => `${u[id] !== undefined ? u[id] : 0},${a[id] || 0},"${t[id] || ''}"`).join(',');
+    csvContent += `"${s.class}",${s.seat},"${s.name}","${s.studentId}",${cols},${avg}\n`;
   });
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
