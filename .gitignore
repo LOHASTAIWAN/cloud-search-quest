@@ -5,3 +5,5 @@ pptx_summary.txt
 
 __pycache__/
 *.pyc
+
+.wrangler/

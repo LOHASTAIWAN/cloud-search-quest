@@ -125,7 +125,7 @@ function handleQuestionTimeout(q) {
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "6.1.0";
+const APP_VERSION = "6.2.0";
 const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.fruit-a1-english.workers.dev";
 
 function getValidCloudUrl() {
@@ -368,7 +368,9 @@ function handleStudentLogin() {
     return;
   }
 
-  // 若有名條進行嚴格核對
+  let canonicalStudent = { class: cls, seat: seat, name: name, studentId: studentId };
+
+  // 若有名條進行嚴格核對並使用名條標準化欄位 (防學號大小寫不一致)
   if (appState.roster && appState.roster.length > 0) {
     const match = appState.roster.find(s => 
       s.class === cls && 
@@ -381,32 +383,34 @@ function handleStudentLogin() {
       showLoginError('查無此學生資料！請確認班級、座號、姓名及學號是否與學校正式名條完全一致。');
       return;
     }
+    canonicalStudent = {
+      class: match.class,
+      seat: match.seat,
+      name: match.name,
+      studentId: String(match.studentId).trim()
+    };
   }
 
   const now = new Date();
-  const loginTime = now.toLocaleString('zh-TW', { hour12: false });
+  const loginTime = now.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
 
   appState.currentStudent = {
-    class: cls,
-    seat: seat,
-    name: name,
-    studentId: studentId,
+    ...canonicalStudent,
     loginTime: loginTime
   };
 
   // 記錄登入日誌
   appState.loginLogs.unshift({
-    class: cls,
-    seat: seat,
-    name: name,
-    studentId: studentId,
+    ...canonicalStudent,
     loginTime: loginTime,
     timestamp: Date.now()
   });
   persistRecords();
 
-  // 非同步即時記錄至後台資料庫
-  syncToCloudflare('log_login', appState.currentStudent);
+  // 非同步即時記錄至後台資料庫，並靜默拉取雲端以同步更新該生大廳歷史最佳分數
+  syncToCloudflare('log_login', appState.currentStudent).then(() => {
+    silentPullCloudData().then(ok => { if (ok) initUnitLobby(); });
+  });
 
   // 轉移畫面至大廳
   showScreen('unitSelectScreen');
@@ -1114,8 +1118,8 @@ function concludeUnitQuest() {
     rec.lastUpdated = Date.now();
     persistRecords();
 
-    // 即時推播更新至後台資料庫（含次數、得分與作答時間）
-    syncToCloudflare('submit_score', {
+    // 即時推播更新至後台資料庫（含次數、得分與作答時間，支援自動重試與狀態回饋）
+    const submitPayload = {
       student: s,
       unitId: unit.unitId,
       unitTitle: unit.unitTitle,
@@ -1128,6 +1132,11 @@ function concludeUnitQuest() {
       totalQuestions: totalQuestions,
       timeSpentSec: timeSpentSec,
       results: appState.currentUnitResults
+    };
+    appState.lastSubmitPayload = submitPayload;
+
+    syncToCloudflare('submit_score', submitPayload).then(ok => {
+      updateResultCloudBadge(ok);
     });
   }
 
@@ -1145,6 +1154,24 @@ function concludeUnitQuest() {
     completedTimeStr: completedTimeStr
   });
 }
+
+function updateResultCloudBadge(isSuccess) {
+  const el = document.getElementById('resultCloudSyncBadge');
+  if (!el) return;
+  if (isSuccess) {
+    el.innerHTML = '<span style="color:#34d399;font-weight:700;"><i class="fa-solid fa-cloud-arrow-up"></i> ✅ 成績已安全寫入雲端資料庫，老師後台即時可查！</span>';
+  } else {
+    el.innerHTML = '<span style="color:#fb7185;font-weight:700;"><i class="fa-solid fa-triangle-exclamation"></i> ⚠️ 雲端寫入連線異常（已暫存本機）</span> <button type="button" class="secondary-btn" style="padding:3px 10px;font-size:0.78rem;margin-left:8px;" onclick="retryLastSubmitScore()">🔄 點此立即補傳雲端</button>';
+  }
+}
+
+window.retryLastSubmitScore = async function() {
+  if (!appState.lastSubmitPayload) return;
+  const el = document.getElementById('resultCloudSyncBadge');
+  if (el) el.innerHTML = '<span style="color:#38bdf8;"><i class="fa-solid fa-spinner fa-spin"></i> 正在補傳成績至雲端...</span>';
+  const ok = await syncToCloudflare('submit_score', appState.lastSubmitPayload);
+  updateResultCloudBadge(ok);
+};
 
 function renderResultScreen(res) {
   const container = document.getElementById('resultDetailsContainer');
@@ -1210,6 +1237,9 @@ function renderResultScreen(res) {
       <div style="margin-top:8px;font-size:0.88rem;color:var(--text-muted);">
         📊 這是您本單元的 <strong>第 ${res.attemptNumber || 1} 次</strong> 闖關測驗 ｜ 🕒 完成時間：${escapeHtml(res.completedTimeStr || '')}
       </div>
+      <div id="resultCloudSyncBadge" style="margin-top:8px;font-size:0.86rem;">
+        <span style="color:#38bdf8;"><i class="fa-solid fa-spinner fa-spin"></i> 正在將成績安全同步至雲端資料庫...</span>
+      </div>
       <div class="result-evaluation-tag">${evaluation}</div>
     </div>
 
@@ -1251,7 +1281,7 @@ function renderResultScreen(res) {
 
     <div class="result-actions-row">
       <button class="primary-btn" onclick="startQuestUnit(appState.activeUnitIdx)">🔄 再挑戰一次</button>
-      <button class="secondary-btn" onclick="openWorksheetModal(appState.activeUnitIdx)">📑 檢視本單元 Google Docs 簡答題</button>
+      <button class="secondary-btn" onclick="openWorksheetModal(appState.activeUnitIdx)">📑 檢視本單元多元實作作業任務</button>
       <button class="secondary-btn" onclick="showScreen('unitSelectScreen'); initUnitLobby();">🏠 返回單元大廳</button>
     </div>
   `;
@@ -1283,33 +1313,79 @@ function recordQuestionAttempt(qId, isCorrect) {
   } catch (e) {}
 })();
 
-async function syncToCloudflare(action, payload) {
+async function syncToCloudflare(action, payload, maxRetries = 3) {
   const url = appState.cfWorkerUrl;
   if (!url) {
     updateCloudStatusBadge(false);
     return false;
   }
-  try {
-    // 使用 text/plain;charset=utf-8 避免觸發 Google Apps Script CORS OPTIONS 預檢阻擋，且 Cloudflare Worker 同樣可完整解析 JSON
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: action, data: payload, timestamp: Date.now() })
-    });
-    if (res.ok) {
-      updateCloudStatusBadge(true);
-      return true;
+  const bodyStr = JSON.stringify({ action: action, data: payload, timestamp: Date.now() });
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // 使用 text/plain;charset=utf-8 避免觸發 Google Apps Script CORS OPTIONS 預檢阻擋，且 Cloudflare Worker 同樣可完整解析 JSON
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: bodyStr,
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        const resData = await res.json().catch(() => ({ success: true }));
+        if (resData.success !== false) {
+          updateCloudStatusBadge(true);
+          return true;
+        }
+      }
+    } catch (err) {
+      console.warn(`同步至雲端資料庫第 ${attempt} 次失敗:`, err);
     }
-    updateCloudStatusBadge(false);
-    return false;
-  } catch (err) {
-    console.warn('同步至雲端資料庫異常 (資料仍已保存在本機快取):', err);
-    updateCloudStatusBadge(false);
-    return false;
+    if (attempt < maxRetries) {
+      await new Promise(r => setTimeout(r, attempt * 450));
+    }
   }
+  updateCloudStatusBadge(false);
+  return false;
 }
 
-// 靜默拉取雲端資料
+// 自動偵測本機快取是否有遺失未寫入雲端的成績，若發現則自動救援補傳回雲端
+async function recoverUnsyncedLocalScores(cloudScores) {
+  if (!appState.cfWorkerUrl || !cloudScores) return 0;
+  let recoveredCount = 0;
+  const localIds = Object.keys(appState.studentScores);
+  for (const sId of localIds) {
+    const lSt = appState.studentScores[sId];
+    if (!lSt || !lSt.unitScores) continue;
+    const cSt = cloudScores[sId] || {};
+    const cUnitScores = cSt.unitScores || {};
+
+    for (const uId of Object.keys(lSt.unitScores)) {
+      const lScore = lSt.unitScores[uId];
+      const cScore = cUnitScores[uId];
+      if (lScore !== undefined && lScore !== null && (cScore === undefined || Number(lScore) > Number(cScore))) {
+        const ok = await syncToCloudflare('sync_recovery', {
+          student: {
+            class: lSt.class,
+            seat: lSt.seat,
+            name: lSt.name,
+            studentId: sId
+          },
+          unitId: uId,
+          finalScore: Number(lScore),
+          attemptNumber: (lSt.unitAttempts && lSt.unitAttempts[uId]) || 1,
+          completedTime: (lSt.unitLastTime && lSt.unitLastTime[uId]) || new Date().toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false }),
+          unitHistory: (lSt.unitHistory && lSt.unitHistory[uId]) || []
+        }, 2);
+        if (ok) recoveredCount++;
+      }
+    }
+  }
+  if (recoveredCount > 0) {
+    console.log(`🔄 已自動將本機保存的 ${recoveredCount} 筆漏傳單元成績成功補傳至雲端資料庫！`);
+  }
+  return recoveredCount;
+}
+
+// 靜默拉取雲端資料（拉取前先比對本機未同步分數並自動救援補傳）
 async function silentPullCloudData() {
   const url = appState.cfWorkerUrl;
   if (!url) {
@@ -1320,11 +1396,13 @@ async function silentPullCloudData() {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'get_all_data' })
+      body: JSON.stringify({ action: 'get_all_data' }),
+      cache: 'no-store'
     });
     if (res.ok) {
       const data = await res.json();
       if (data.studentScores) {
+        await recoverUnsyncedLocalScores(data.studentScores);
         mergeStudentScores(data.studentScores);
       }
       if (data.questionStats) {
@@ -1414,7 +1492,8 @@ window.pullFromCloudDatabase = async function(btnEl) {
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'get_all_data' })
+      body: JSON.stringify({ action: 'get_all_data' }),
+      cache: 'no-store'
     });
 
     if (res.ok) {
@@ -1422,7 +1501,9 @@ window.pullFromCloudDatabase = async function(btnEl) {
       if (data.success === false) {
         throw new Error(data.error || '後端回傳錯誤');
       }
+      let recovered = 0;
       if (data.studentScores) {
+        recovered = await recoverUnsyncedLocalScores(data.studentScores);
         mergeStudentScores(data.studentScores);
       }
       if (data.questionStats) {
@@ -1434,7 +1515,8 @@ window.pullFromCloudDatabase = async function(btnEl) {
       persistRecords();
       renderTeacherDashboard(true);
       updateCloudStatusBadge(true);
-      alert('🎉 雲端資料庫同步完成！已成功抓取並合併最新全校學生成績與作答紀錄！');
+      const countNow = Object.keys(appState.studentScores).length;
+      alert(`🎉 雲端資料庫同步完成！目前全校共有 ${countNow} 位學生紀錄${recovered > 0 ? `（並自動救援補傳了 ${recovered} 筆本機漏傳成績）` : ''}！`);
     } else {
       throw new Error('伺服器回應狀態碼：' + res.status);
     }
@@ -1673,11 +1755,30 @@ function calculateAverage(unitScores) {
 // -------------------------------------------------------------------------
 // 教師手動修改與檢視歷次闖關明細 (UPDATE / DETAILS)
 // -------------------------------------------------------------------------
-window.openEditScoreModal = function(studentId) {
-  const student = appState.studentScores[studentId];
+window.openEditScoreModal = async function(studentId) {
+  let student = appState.studentScores[studentId];
   if (!student) {
     alert('查無該學生紀錄！');
     return;
+  }
+
+  // 若連線上雲端，向後端拉取該生最完整的 unitHistory 明細
+  if (appState.cfWorkerUrl) {
+    try {
+      const res = await fetch(appState.cfWorkerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'get_student_detail', studentId: studentId }),
+        cache: 'no-store'
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.success && d.student) {
+          mergeStudentScores({ [studentId]: d.student });
+          student = appState.studentScores[studentId];
+        }
+      }
+    } catch (e) {}
   }
 
   document.getElementById('editModalStudentId').value = studentId;
