@@ -42,14 +42,14 @@
           <i class="fa-solid fa-file-lines"></i> 簡答學習單
         </button>
 
-        <!-- 主題風格切換器 (三種風格自由選) -->
+        <!-- 主題風格切換器 (4種國中生超愛風格一鍵瞬切) -->
         <div class="theme-switcher-box" title="切換網頁視覺風格">
-          <i class="fa-solid fa-palette text-cyan"></i>
-          <select id="themeSelect" class="theme-select" onchange="changeTheme(this.value)">
-            <option value="cyber">🚀 賽博特工 (暗黑科技)</option>
-            <option value="fresh">☀️ 清新校園 (明亮護眼)</option>
-            <option value="arcade">🎮 像素街機 (復古電玩)</option>
-          </select>
+          <div id="themePillsGroup" class="theme-pills-group">
+            <button type="button" class="theme-pill active" data-theme-btn="cyber" onclick="changeTheme('cyber')" title="電競霓虹 Valorant 風">🎮 電競</button>
+            <button type="button" class="theme-pill" data-theme-btn="anime" onclick="changeTheme('anime')" title="動漫星穹二次元">✨ 動漫</button>
+            <button type="button" class="theme-pill" data-theme-btn="voxel" onclick="changeTheme('voxel')" title="方塊像素冒險風">🧱 方塊</button>
+            <button type="button" class="theme-pill" data-theme-btn="fresh" onclick="changeTheme('fresh')" title="韓系奶茶清新手帳">🧋 奶茶</button>
+          </div>
         </div>
 
         <!-- 教師管理後台入口 -->
@@ -64,7 +64,7 @@
 
         <!-- 網頁版本與更新時間戳記 (全域規範) -->
         <div class="web-version-badge" title="系統版本與發布時間">
-          v6.0 | 2026-11-16 12:10
+          v6.1 | 2026-11-18 11:08
         </div>
       </div>
     </div>
@@ -120,8 +120,8 @@
         <div class="lobby-tag">CHALLENGE MISSIONS</div>
         <h2 class="lobby-title">雲端與資料科技・8 大特訓單元</h2>
         <p class="lobby-subtitle">
-          每單元 15 題（前 10 題為生活核心題，每題 10 分滿分 100 分；後 5 題為時事進階挑戰題，每題 5 分加分）。
-          並提供每單元專屬的 <strong>Google Docs 5 題生活簡答學習單</strong> 供深度探究！
+          每單元 15 題多元互動闖關（前 10 題基礎佔 60 分、後 5 題挑戰佔 40 分，每題限時 40 秒，看提示得分減半），
+          並為各單元搭配專屬的 <strong>多元雲端應用程式實務作業（Docs / Sheets / Slides / Forms / Gemini / 心智圖）</strong>！
         </p>
       </div>
 
@@ -151,11 +151,11 @@
         <div id="progressBarFill" class="progress-bar-fill" style="width: 6.6%;"></div>
       </div>
 
-      <!-- 30 秒作答倒數計時條 -->
+      <!-- 40 秒作答倒數計時條 -->
       <div class="question-timer-bar-wrap">
         <div class="timer-info-row">
-          <span class="timer-label"><i class="fa-solid fa-stopwatch-20"></i> 限時作答（超過 30 秒自動揭曉解答跳題）</span>
-          <span id="questionTimerText" class="timer-countdown">30s</span>
+          <span class="timer-label"><i class="fa-solid fa-stopwatch-20"></i> 限時作答（超過 40 秒自動揭曉解答跳題）</span>
+          <span id="questionTimerText" class="timer-countdown">40s</span>
         </div>
         <div class="timer-progress-track">
           <div id="questionTimerBar" class="timer-progress-fill" style="width: 100%;"></div>
@@ -410,8 +410,8 @@
   </div>
 
   <!-- 載入核心題庫、學習單題庫與遊戲引擎 (純 UTF-8) -->
-  <script src="data.js?v=6.0.0"></script>
-  <script src="worksheets_data.js?v=6.0.0"></script>
-  <script src="app.js?v=6.0.0"></script>
+  <script src="data.js?v=6.1.0"></script>
+  <script src="worksheets_data.js?v=6.1.0"></script>
+  <script src="app.js?v=6.1.0"></script>
 </body>
 </html>

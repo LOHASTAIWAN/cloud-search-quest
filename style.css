@@ -2515,63 +2515,256 @@ body {
 
 
 /* ==========================================================================
-   主題風格切換器 (三種風格：Cyber Dark / Fresh Light / Pixel Arcade)
+   主題風格切換器 (四種國中生超愛風格：電競霓虹 / 動漫星穹 / 方塊冒險 / 韓系奶茶)
    ========================================================================== */
 .theme-switcher-box {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--bg-card);
+}
+.theme-pills-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.75);
   border: 1px solid var(--border-glow);
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 0.85rem;
+  padding: 4px;
+  border-radius: 999px;
 }
-.theme-select {
+.theme-pill {
   background: transparent;
-  color: var(--text-main);
+  color: var(--text-muted);
   border: none;
-  outline: none;
-  font-size: 0.82rem;
-  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
-.theme-select option {
-  background: var(--bg-secondary);
-  color: var(--text-main);
+.theme-pill:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.theme-pill.active {
+  background: linear-gradient(135deg, var(--cyan-glow), var(--purple-glow));
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.45);
 }
 
-/* 清新校園風格 (Fresh Light) */
+/* --------------------------------------------------------------------------
+   風格 2：✨ 動漫星穹 (Anime Starlight / 櫻花星夜夢幻毛玻璃)
+   -------------------------------------------------------------------------- */
+body[data-theme="anime"] {
+  --bg-primary: #1a0b2e;
+  --bg-secondary: #2e134d;
+  --bg-card: rgba(54, 24, 88, 0.78);
+  --bg-card-hover: rgba(76, 32, 122, 0.88);
+  --border-glow: rgba(244, 114, 182, 0.55);
+  --cyan-glow: #f472b6;
+  --cyan-dark: #db2777;
+  --emerald-glow: #34d399;
+  --purple-glow: #a78bfa;
+  --amber-glow: #fcd34d;
+  --rose-glow: #fb7185;
+  --text-main: #fdf4ff;
+  --text-muted: #f5d0fe;
+  --shadow-neon: 0 12px 32px rgba(244, 114, 182, 0.28);
+  background-color: #1a0b2e;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(244, 114, 182, 0.28) 0%, transparent 45%),
+    radial-gradient(circle at 88% 22%, rgba(167, 139, 250, 0.30) 0%, transparent 45%),
+    radial-gradient(circle at 50% 88%, rgba(56, 189, 248, 0.22) 0%, transparent 50%);
+  color: #fdf4ff;
+}
+body[data-theme="anime"] .navbar {
+  background: rgba(34, 14, 58, 0.85);
+  border-bottom: 1.5px solid rgba(244, 114, 182, 0.4);
+}
+body[data-theme="anime"] .quest-card,
+body[data-theme="anime"] .login-card-container,
+body[data-theme="anime"] .unit-card,
+body[data-theme="anime"] .result-card-container,
+body[data-theme="anime"] .admin-panel-container,
+body[data-theme="anime"] .modal-card {
+  background: rgba(46, 19, 77, 0.76);
+  backdrop-filter: blur(20px);
+  border: 2px solid rgba(244, 114, 182, 0.5);
+  border-radius: 26px;
+  box-shadow: 0 12px 35px rgba(219, 39, 119, 0.25);
+}
+body[data-theme="anime"] .start-unit-btn,
+body[data-theme="anime"] .primary-btn,
+body[data-theme="anime"] .btn-primary-large {
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.4);
+}
+body[data-theme="anime"] .option-choice-btn {
+  border-radius: 18px;
+  border-color: rgba(244, 114, 182, 0.45);
+  background: rgba(30, 12, 54, 0.75);
+}
+body[data-theme="anime"] .option-choice-btn:hover {
+  border-color: #f472b6;
+  background: rgba(236, 72, 153, 0.25);
+  box-shadow: 0 0 18px rgba(244, 114, 182, 0.45);
+}
+body[data-theme="anime"] .theme-pill.active {
+  background: linear-gradient(135deg, #ec4899, #a855f7);
+}
+
+/* --------------------------------------------------------------------------
+   風格 3：🧱 方塊冒險 (Voxel Craft / Minecraft 像素 RPG 硬邊方塊風)
+   -------------------------------------------------------------------------- */
+body[data-theme="voxel"] {
+  --bg-primary: #0f1f14;
+  --bg-secondary: #162e1e;
+  --bg-card: #1b3824;
+  --bg-card-hover: #22472e;
+  --border-glow: #22c55e;
+  --cyan-glow: #4ade80;
+  --cyan-dark: #16a34a;
+  --emerald-glow: #22c55e;
+  --purple-glow: #fbbf24;
+  --amber-glow: #fbbf24;
+  --rose-glow: #ef4444;
+  --text-main: #f0fdf4;
+  --text-muted: #bbf7d0;
+  --shadow-neon: 6px 6px 0px #15803d;
+  background-color: #0d1b12;
+  background-image:
+    linear-gradient(rgba(34, 197, 94, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 197, 94, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: #f0fdf4;
+}
+body[data-theme="voxel"] .navbar {
+  background: #142a1b;
+  border-bottom: 4px solid #22c55e;
+}
+body[data-theme="voxel"] .quest-card,
+body[data-theme="voxel"] .login-card-container,
+body[data-theme="voxel"] .unit-card,
+body[data-theme="voxel"] .result-card-container,
+body[data-theme="voxel"] .admin-panel-container,
+body[data-theme="voxel"] .modal-card {
+  background: #193321;
+  border: 3px solid #22c55e;
+  border-radius: 6px;
+  box-shadow: 6px 6px 0px #14532d;
+}
+body[data-theme="voxel"] .option-choice-btn,
+body[data-theme="voxel"] .tf-choice-btn,
+body[data-theme="voxel"] .order-card,
+body[data-theme="voxel"] .bit-switch-card {
+  border-radius: 6px;
+  border: 2.5px solid #fbbf24;
+  background: #1f3f29;
+  box-shadow: 4px 4px 0px #b45309;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+body[data-theme="voxel"] .option-choice-btn:hover,
+body[data-theme="voxel"] .tf-choice-btn:hover {
+  background: #274f34;
+  border-color: #4ade80;
+}
+body[data-theme="voxel"] .option-choice-btn:active,
+body[data-theme="voxel"] .primary-btn:active,
+body[data-theme="voxel"] .start-unit-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0px #b45309;
+}
+body[data-theme="voxel"] .start-unit-btn,
+body[data-theme="voxel"] .primary-btn,
+body[data-theme="voxel"] .btn-primary-large {
+  border-radius: 6px;
+  background: #16a34a;
+  border: 2px solid #86efac;
+  box-shadow: 4px 4px 0px #14532d;
+}
+body[data-theme="voxel"] .theme-pill.active {
+  background: #22c55e;
+  color: #052e16;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   風格 4：🧋 韓系奶茶清新手帳 (Fresh Study Aesthetic / 白天明亮護眼)
+   -------------------------------------------------------------------------- */
 body[data-theme="fresh"] {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #f1f5f9;
+  --bg-primary: #fdf8f3;
+  --bg-secondary: #f5ede4;
   --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
-  --border-glow: #cbd5e1;
+  --bg-card-hover: #fffaf5;
+  --border-glow: #d6c5b3;
   --cyan-glow: #0284c7;
   --cyan-dark: #0369a1;
   --emerald-glow: #059669;
   --purple-glow: #7c3aed;
   --amber-glow: #d97706;
   --rose-glow: #e11d48;
-  --text-main: #0f172a;
+  --text-main: #1e293b;
   --text-muted: #475569;
-  --shadow-neon: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
-  background: #f8fafc;
-  color: #0f172a;
+  --shadow-neon: 0 10px 25px -5px rgba(120, 80, 40, 0.1);
+  background: #fdf8f3;
+  color: #1e293b;
 }
-body[data-theme="fresh"] .header-bar {
-  background: rgba(255, 255, 255, 0.95);
-  border-bottom: 1px solid #e2e8f0;
+body[data-theme="fresh"] .navbar {
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 2px solid #e7ddd2;
+}
+body[data-theme="fresh"] .theme-pills-group {
+  background: #f1e8df;
+  border-color: #d6c5b3;
+}
+body[data-theme="fresh"] .theme-pill {
+  color: #57534e;
+}
+body[data-theme="fresh"] .theme-pill:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.06);
+}
+body[data-theme="fresh"] .badge-name,
+body[data-theme="fresh"] .lobby-title,
+body[data-theme="fresh"] .unit-title,
+body[data-theme="fresh"] .prompt-title,
+body[data-theme="fresh"] .prompt-content,
+body[data-theme="fresh"] .active-unit-name,
+body[data-theme="fresh"] .hud-item,
+body[data-theme="fresh"] .login-title,
+body[data-theme="fresh"] .modal-title,
+body[data-theme="fresh"] .section-title {
+  color: #1e293b !important;
+}
+body[data-theme="fresh"] .lobby-subtitle,
+body[data-theme="fresh"] .unit-desc,
+body[data-theme="fresh"] .scenario-text,
+body[data-theme="fresh"] .login-subtitle,
+body[data-theme="fresh"] .section-desc,
+body[data-theme="fresh"] .unit-meta {
+  color: #475569 !important;
 }
 body[data-theme="fresh"] .quest-card,
 body[data-theme="fresh"] .login-card-container,
-body[data-theme="fresh"] .unit-lobby-card,
+body[data-theme="fresh"] .unit-card,
 body[data-theme="fresh"] .result-card-container,
-body[data-theme="fresh"] .admin-panel-container {
+body[data-theme="fresh"] .admin-panel-container,
+body[data-theme="fresh"] .modal-card,
+body[data-theme="fresh"] .ws-question-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border: 2px solid #e7ddd2;
+  box-shadow: 0 8px 24px rgba(120, 80, 40, 0.08);
+  color: #1e293b;
+}
+body[data-theme="fresh"] .scenario-box {
+  background: #eff6ff;
+  border-left-color: #0284c7;
+}
+body[data-theme="fresh"] .question-timer-bar-wrap {
+  background: #ffffff;
+  border-color: #cbd5e1;
 }
 body[data-theme="fresh"] .option-choice-btn {
   background: #f8fafc;
@@ -2584,44 +2777,29 @@ body[data-theme="fresh"] .option-choice-btn:hover {
   color: #0369a1;
 }
 body[data-theme="fresh"] .form-control,
-body[data-theme="fresh"] .game-input {
+body[data-theme="fresh"] .game-input,
+body[data-theme="fresh"] .toolbar-select,
+body[data-theme="fresh"] .search-input-box input {
   background: #ffffff;
   color: #0f172a;
   border: 1.5px solid #cbd5e1;
 }
-
-/* 像素街機風格 (Pixel Arcade) */
-body[data-theme="arcade"] {
-  --bg-primary: #180b2b;
-  --bg-secondary: #271246;
-  --bg-card: #281446;
-  --bg-card-hover: #3b1b66;
-  --border-glow: #fbbf24;
-  --cyan-glow: #06b6d4;
-  --cyan-dark: #0891b2;
-  --emerald-glow: #22c55e;
-  --purple-glow: #f43f5e;
-  --amber-glow: #fbbf24;
-  --rose-glow: #ef4444;
-  --text-main: #fef9c3;
-  --text-muted: #d8b4fe;
-  --shadow-neon: 0 0 20px rgba(251, 191, 36, 0.35);
-  background: #180b2b;
-  color: #fef9c3;
+body[data-theme="fresh"] .secondary-btn,
+body[data-theme="fresh"] .unit-worksheet-btn {
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1.5px solid #cbd5e1;
 }
-body[data-theme="arcade"] .quest-card,
-body[data-theme="arcade"] .unit-lobby-card,
-body[data-theme="arcade"] .result-card-container {
-  border: 2px solid #fbbf24;
-  box-shadow: 4px 4px 0px #f59e0b;
+body[data-theme="fresh"] .result-analysis-section {
+  background: #f8fafc;
 }
-body[data-theme="arcade"] .option-choice-btn {
-  border: 2px solid #a855f7;
-  box-shadow: 3px 3px 0px #7e22ce;
+body[data-theme="fresh"] .matrix-q-card {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 /* ==========================================================================
-   30 秒答題倒數計時器
+   40 秒答題倒數計時器
    ========================================================================== */
 .question-timer-bar-wrap {
   margin: 12px 0 16px;

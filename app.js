@@ -1,16 +1,20 @@
 
 // =========================================================================
-// 主題風格切換器 (三種風格：Cyber Dark / Fresh Light / Pixel Arcade)
+// 主題風格切換器 (四種國中生超愛風格：電競霓虹 / 動漫星穹 / 方塊冒險 / 韓系奶茶)
 // =========================================================================
 window.changeTheme = function(themeName) {
-  document.body.setAttribute('data-theme', themeName);
-  localStorage.setItem('cybercloud_theme', themeName);
+  const normalized = (themeName === 'arcade') ? 'voxel' : themeName;
+  document.body.setAttribute('data-theme', normalized);
+  localStorage.setItem('cybercloud_theme', normalized);
   const sel = document.getElementById('themeSelect');
-  if (sel) sel.value = themeName;
+  if (sel) sel.value = normalized;
+  document.querySelectorAll('.theme-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-theme-btn') === normalized);
+  });
 };
 
-// 30 秒限時作答計時器引擎
-function startQuestionTimer(durationSec = 30) {
+// 40 秒限時作答計時器引擎
+function startQuestionTimer(durationSec = 40) {
   stopQuestionTimer();
   appState.timerSecondsLeft = durationSec;
   
@@ -36,9 +40,9 @@ function startQuestionTimer(durationSec = 30) {
 
     if (timerText) {
       timerText.textContent = `${left}s`;
-      if (left <= 5) {
+      if (left <= 6) {
         timerText.className = 'timer-countdown danger';
-      } else if (left <= 10) {
+      } else if (left <= 12) {
         timerText.className = 'timer-countdown warning';
       } else {
         timerText.className = 'timer-countdown';
@@ -47,9 +51,9 @@ function startQuestionTimer(durationSec = 30) {
 
     if (timerBar) {
       timerBar.style.width = `${pct}%`;
-      if (left <= 5) {
+      if (left <= 6) {
         timerBar.className = 'timer-progress-fill danger';
-      } else if (left <= 10) {
+      } else if (left <= 12) {
         timerBar.className = 'timer-progress-fill warning';
       } else {
         timerBar.className = 'timer-progress-fill';
@@ -89,7 +93,7 @@ function handleQuestionTimeout(q) {
   feedbackArea.className = 'feedback-box error-feedback';
   feedbackArea.innerHTML = `
     <div class="feedback-header">
-      <span class="badge-error">⏰ 作答時間到（超過 30 秒）！本題 0 分</span>
+      <span class="badge-error">⏰ 作答時間到（超過 40 秒）！本題 0 分</span>
     </div>
     <div class="correct-answer-row">
       <strong>正確解答：</strong> <span class="highlight-ans">${escapeHtml(q.answer)}</span>
@@ -121,7 +125,7 @@ function handleQuestionTimeout(q) {
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "6.0.0";
+const APP_VERSION = "6.1.0";
 const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.fruit-a1-english.workers.dev";
 
 function getValidCloudUrl() {
@@ -151,10 +155,10 @@ const appState = {
   unitStartTime: null,
   currentUnitResults: [], // [{ qId, correct: true/false, score: number, usedHint: boolean, timeout: boolean }]
 
-  // 30 秒倒數計時與提示扣分狀態
+  // 40 秒倒數計時與提示扣分狀態
   questionTimer: null,
   autoSkipTimer: null,
-  timerSecondsLeft: 30,
+  timerSecondsLeft: 40,
   usedHintForCurrentQ: false,
   
   // 學習單 Modal 當前單元
@@ -575,7 +579,7 @@ function renderCurrentQuestion() {
       <span class="q-type-badge">${getQuestionTypeLabel(q.type)}</span>
       <span class="q-points-badge">${isChallenge ? '+8 分 (挑戰題・全單元滿分40)' : '+6 分 (基礎題・全單元滿分60)'}</span>
       <span class="q-level-badge">難度：${q.level}</span>
-      <span style="font-size:0.75rem;color:var(--text-muted);margin-left:auto;">(限時 30 秒・看提示得 ${halfPts} 分・題序隨機)</span>
+      <span style="font-size:0.75rem;color:var(--text-muted);margin-left:auto;">(限時 40 秒・看提示得 ${halfPts} 分・題序隨機)</span>
     </div>
     <div class="scenario-box">
       <div class="scenario-title">📌 生活與課本情境：</div>
@@ -591,7 +595,7 @@ function renderCurrentQuestion() {
   `;
 
   renderInteractiveInput(q);
-  startQuestionTimer(30);
+  startQuestionTimer(40);
 }
 
 function formatPromptContent(q) {
