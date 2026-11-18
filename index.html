@@ -64,7 +64,7 @@
 
         <!-- 網頁版本與更新時間戳記 (全域規範) -->
         <div class="web-version-badge" title="系統版本與發布時間">
-          v6.2 | 2026-11-18 14:19
+          v6.3 | 2026-11-18 14:58
         </div>
       </div>
     </div>
@@ -139,6 +139,7 @@
         </div>
 
         <div class="topbar-status-hud">
+          <span class="hud-item"><i class="fa-solid fa-star text-success"></i> 目前實得：<strong id="liveScoreDisplay" style="color:#34d399;">0</strong> / 100 分</span>
           <span class="hud-item"><i class="fa-solid fa-heart text-danger"></i> 生命值：<strong id="hpDisplay">100</strong>%</span>
           <span class="hud-item"><i class="fa-solid fa-bolt text-warning"></i> 經驗值：<strong id="xpDisplay">0</strong> XP</span>
           <span class="hud-item"><i class="fa-solid fa-fire text-orange"></i> 連擊：<strong id="comboDisplay">0</strong></span>
@@ -239,6 +240,10 @@
             <button class="primary-btn" onclick="saveCfWorkerConfig()">儲存並測試連線</button>
             <button class="secondary-btn" onclick="testCloudConnection()">連線測試</button>
             <button class="secondary-btn" onclick="copyShareableClassUrl()" title="產生內含雲端資料庫網址的連結，貼到 Classroom 讓學生開啟即自動連線"><i class="fa-solid fa-share-nodes"></i> 複製全班測驗連結</button>
+          </div>
+          <div class="cf-input-row" style="margin-top:8px;">
+            <input type="text" id="backupDbInput" placeholder="(選填雙寫備援) 可貼入 Google 試算表 Apps Script 網址，學生交卷時雙重備份寫入" class="form-control" value="">
+            <button class="secondary-btn" onclick="saveBackupDbConfig()">儲存雙寫備援網址</button>
           </div>
           <div class="config-help-row">
             <small class="text-muted">
@@ -410,8 +415,8 @@
   </div>
 
   <!-- 載入核心題庫、學習單題庫與遊戲引擎 (純 UTF-8) -->
-  <script src="data.js?v=6.2.0"></script>
-  <script src="worksheets_data.js?v=6.2.0"></script>
-  <script src="app.js?v=6.2.0"></script>
+  <script src="data.js?v=6.3.0"></script>
+  <script src="worksheets_data.js?v=6.3.0"></script>
+  <script src="app.js?v=6.3.0"></script>
 </body>
 </html>

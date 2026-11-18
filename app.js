@@ -125,7 +125,7 @@ function handleQuestionTimeout(q) {
 // CyberCloud 雲端神偷特工隊 - 核心引擎 app.js (v3.8.0)
 // 支援 115 級學生名條檢核、8大單元120題、後台資料庫 (記錄/查詢/更新/同步)、Google Docs 5題簡答學習單
 
-const APP_VERSION = "6.2.0";
+const APP_VERSION = "6.3.0";
 const DEFAULT_CF_WORKER_URL = "https://cybercloud-backend.fruit-a1-english.workers.dev";
 
 function getValidCloudUrl() {
@@ -148,6 +148,7 @@ const appState = {
   activeQuestions: [], // 該次測驗隨機洗牌後的題目與選項序列
   hp: 100,
   xp: 0,
+  liveScore: 0,
   combo: 0,
   maxCombo: 0,
   soundEnabled: true,
@@ -169,8 +170,9 @@ const appState = {
   questionStats: {}, // key: qId -> { attempts: 0, correct: 0, passRate: '0%' }
   loginLogs: [],     // [{ class, seat, studentId, name, loginTime, timestamp }]
 
-  // 遠端資料庫 API 設定 (若尚未部署請至後台設定真實 Cloudflare Worker 或 Google Apps Script URL)
-  cfWorkerUrl: getValidCloudUrl()
+  // 遠端資料庫 API 設定 (主：Cloudflare Worker；備援雙寫：Google Apps Script)
+  cfWorkerUrl: getValidCloudUrl(),
+  backupDbUrl: localStorage.getItem('CYBERCLOUD_BACKUP_URL') || ''
 };
 
 // Web Audio API 音效生成器 (無須外連 mp3)
@@ -532,6 +534,7 @@ window.startQuestUnit = function(unitIdx) {
   appState.activeQuestionIdx = 0;
   appState.hp = 100;
   appState.xp = 0;
+  appState.liveScore = 0;
   appState.combo = 0;
   appState.maxCombo = 0;
   appState.isAnswered = false;
@@ -575,6 +578,8 @@ function renderCurrentQuestion() {
   
   document.getElementById('hpDisplay').textContent = appState.hp;
   document.getElementById('xpDisplay').textContent = appState.xp;
+  const liveEl = document.getElementById('liveScoreDisplay');
+  if (liveEl) liveEl.textContent = appState.liveScore;
   document.getElementById('comboDisplay').textContent = appState.combo;
 
   const qContainer = document.getElementById('questionContainer');
@@ -954,6 +959,7 @@ function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
 
     const earnedXp = earnedPts + (appState.combo > 1 ? appState.combo * 2 : 0);
     appState.xp += earnedXp;
+    appState.liveScore += earnedPts;
 
     feedbackArea.className = 'feedback-box success-feedback';
     feedbackArea.innerHTML = `
@@ -996,6 +1002,8 @@ function handleAnswerResult(isCorrect, q, studentInput, btnEl) {
 
   document.getElementById('hpDisplay').textContent = appState.hp;
   document.getElementById('xpDisplay').textContent = appState.xp;
+  const liveEl = document.getElementById('liveScoreDisplay');
+  if (liveEl) liveEl.textContent = appState.liveScore;
   document.getElementById('comboDisplay').textContent = appState.combo;
 
   feedbackArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1140,20 +1148,54 @@ function concludeUnitQuest() {
     });
   }
 
-  showScreen('resultScreen');
-  renderResultScreen({
+  let bestSavedScore = finalTotalScore;
+  if (appState.currentStudent) {
+    const recCheck = appState.studentScores[appState.currentStudent.studentId];
+    if (recCheck && recCheck.unitScores && recCheck.unitScores[unit.unitId] !== undefined) {
+      bestSavedScore = recCheck.unitScores[unit.unitId];
+    }
+  }
+
+  const resultMeta = {
     unitTitle: unit.unitTitle,
+    unitId: unit.unitId,
     baseScore: baseScore,
     challengeScore: challengeScore,
     finalTotalScore: finalTotalScore,
+    bestSavedScore: bestSavedScore,
     correctCount: correctCount,
     totalQuestions: totalQuestions,
     maxCombo: appState.maxCombo,
     timeSpentSec: timeSpentSec,
     attemptNumber: attemptNumber,
     completedTimeStr: completedTimeStr
-  });
+  };
+  appState.lastResultSummary = resultMeta;
+
+  showScreen('resultScreen');
+  renderResultScreen(resultMeta);
 }
+
+window.copyScoreReceipt = function() {
+  const r = appState.lastResultSummary;
+  const s = appState.currentStudent || { class: '訪客', seat: '-', name: '未登入', studentId: '-' };
+  if (!r) return;
+  const details = appState.currentUnitResults.map((q, i) => `Q${i + 1}:${q.score}分(${q.correct ? (q.usedHint ? '提示對' : '全對') : (q.timeout ? '逾時' : '錯')})`).join(' | ');
+  const receipt = [
+    '【115資訊科技・測驗電子成績憑證】',
+    `學生：${s.class} ${s.seat}號 ${s.name} (學號：${s.studentId})`,
+    `單元：${r.unitTitle}`,
+    `本次實得分數：${r.finalTotalScore} 分 (基礎${r.baseScore}/60 + 挑戰${r.challengeScore}/40)`,
+    `系統保留最高分：${r.bestSavedScore} 分 (累計第 ${r.attemptNumber} 次闖關)`,
+    `完成時間：${r.completedTimeStr} (耗時 ${r.timeSpentSec} 秒)`,
+    `逐題明細：${details}`
+  ].join('\n');
+  navigator.clipboard.writeText(receipt).then(() => {
+    alert('✅ 已複製「電子成績憑證」至剪貼簿！可傳送給老師存證查核，絕不怕遺失重測！');
+  }).catch(() => {
+    prompt('請複製以下電子成績憑證：', receipt);
+  });
+};
 
 function updateResultCloudBadge(isSuccess) {
   const el = document.getElementById('resultCloudSyncBadge');
@@ -1235,10 +1277,13 @@ function renderResultScreen(res) {
         <span>總分滿分：<strong>100 分</strong></span>
       </div>
       <div style="margin-top:8px;font-size:0.88rem;color:var(--text-muted);">
-        📊 這是您本單元的 <strong>第 ${res.attemptNumber || 1} 次</strong> 闖關測驗 ｜ 🕒 完成時間：${escapeHtml(res.completedTimeStr || '')}
+        📊 這是您本單元的 <strong>第 ${res.attemptNumber || 1} 次</strong> 闖關（歷史最高保留：<strong>${res.bestSavedScore !== undefined ? res.bestSavedScore : res.finalTotalScore} 分</strong>） ｜ 🕒 完成時間：${escapeHtml(res.completedTimeStr || '')}
       </div>
       <div id="resultCloudSyncBadge" style="margin-top:8px;font-size:0.86rem;">
         <span style="color:#38bdf8;"><i class="fa-solid fa-spinner fa-spin"></i> 正在將成績安全同步至雲端資料庫...</span>
+      </div>
+      <div style="margin-top:10px;">
+        <button type="button" class="secondary-btn" style="padding:6px 14px;font-size:0.85rem;" onclick="copyScoreReceipt()"><i class="fa-solid fa-receipt"></i> 📋 複製本場電子成績憑證 (防漏存證)</button>
       </div>
       <div class="result-evaluation-tag">${evaluation}</div>
     </div>
@@ -1301,7 +1346,7 @@ function recordQuestionAttempt(qId, isCorrect) {
 // =========================================================================
 // 遠端雲端資料庫 API 通訊模組 (記錄、更新、拉取)
 // =========================================================================
-// 若網址帶有 ?cloud_api=... 參數，自動儲存並綁定資料庫網址 (方便全班在任何電腦打開即自動連線)
+// 若網址帶有 ?cloud_api=... 或 ?backup_api=... 參數，自動儲存並綁定資料庫網址 (方便全班在任何電腦打開即自動連線)
 (function checkUrlCloudApiParam() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -1310,16 +1355,32 @@ function recordQuestionAttempt(qId, isCorrect) {
       appState.cfWorkerUrl = apiParam.trim();
       localStorage.setItem('CYBERCLOUD_CF_URL', appState.cfWorkerUrl);
     }
+    const backupParam = params.get('backup_api');
+    if (backupParam && (backupParam.startsWith('http://') || backupParam.startsWith('https://'))) {
+      appState.backupDbUrl = backupParam.trim();
+      localStorage.setItem('CYBERCLOUD_BACKUP_URL', appState.backupDbUrl);
+    }
   } catch (e) {}
 })();
 
 async function syncToCloudflare(action, payload, maxRetries = 3) {
   const url = appState.cfWorkerUrl;
+  const bodyStr = JSON.stringify({ action: action, data: payload, timestamp: Date.now() });
+
+  // 若教師有設定第二備援資料庫 (如 Google 試算表 Apps Script)，同步觸發雙寫備份
+  if (appState.backupDbUrl && appState.backupDbUrl !== url && ['log_login', 'submit_score', 'update_score', 'sync_recovery'].includes(action)) {
+    fetch(appState.backupDbUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: bodyStr,
+      cache: 'no-store'
+    }).catch(e => console.warn('備援雙寫異常 (不影響主庫寫入):', e));
+  }
+
   if (!url) {
     updateCloudStatusBadge(false);
     return false;
   }
-  const bodyStr = JSON.stringify({ action: action, data: payload, timestamp: Date.now() });
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // 使用 text/plain;charset=utf-8 避免觸發 Google Apps Script CORS OPTIONS 預檢阻擋，且 Cloudflare Worker 同樣可完整解析 JSON
@@ -1584,6 +1645,19 @@ window.saveCfWorkerConfig = function() {
   testCloudConnection();
 };
 
+// 儲存備援雙寫資料庫網址 (如 Google Apps Script)
+window.saveBackupDbConfig = function() {
+  const val = document.getElementById('backupDbInput') ? document.getElementById('backupDbInput').value.trim() : '';
+  appState.backupDbUrl = val;
+  if (val) {
+    localStorage.setItem('CYBERCLOUD_BACKUP_URL', val);
+    alert('✅ 已啟用「雙重備援寫入模式」！未來學生每次交卷將同時寫入 Cloudflare Worker 與您的備援資料庫。');
+  } else {
+    localStorage.removeItem('CYBERCLOUD_BACKUP_URL');
+    alert('已清除第二備援資料庫網址，目前僅使用主資料庫。');
+  }
+};
+
 // 產生帶有 ?cloud_api=... 的全班專用連結，貼到 Classroom 讓學生在任何電腦都能自動寫入雲端
 window.copyShareableClassUrl = function() {
   const url = (document.getElementById('cfWorkerInput') ? document.getElementById('cfWorkerInput').value.trim() : '') || appState.cfWorkerUrl;
@@ -1592,7 +1666,10 @@ window.copyShareableClassUrl = function() {
     return;
   }
   const baseUrl = window.location.origin + window.location.pathname;
-  const shareUrl = `${baseUrl}?cloud_api=${encodeURIComponent(url)}`;
+  let shareUrl = `${baseUrl}?cloud_api=${encodeURIComponent(url)}`;
+  if (appState.backupDbUrl) {
+    shareUrl += `&backup_api=${encodeURIComponent(appState.backupDbUrl)}`;
+  }
   navigator.clipboard.writeText(shareUrl).then(() => {
     alert(`✅ 已複製全班專用測驗連結！\n學生在任何電腦點擊此連結開啟測驗，成績都會自動同步至您的雲端資料庫：\n\n${shareUrl}`);
   }).catch(() => {
@@ -1656,6 +1733,10 @@ function renderTeacherDashboard(skipPing = false) {
   const workerInput = document.getElementById('cfWorkerInput');
   if (workerInput) {
     workerInput.value = appState.cfWorkerUrl;
+  }
+  const backupInput = document.getElementById('backupDbInput');
+  if (backupInput) {
+    backupInput.value = appState.backupDbUrl || '';
   }
   if (!appState.cfWorkerUrl) {
     updateCloudStatusBadge(false);
